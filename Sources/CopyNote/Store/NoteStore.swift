@@ -101,6 +101,40 @@ final class NoteStore {
         save()
     }
 
+    // MARK: - F3 星标/锁定 + F5 Duplicate
+
+    /// 切换便签的星标状态（会触发重排 + 持久化）。
+    func togglePinned(_ note: Note) {
+        guard let i = notes.firstIndex(where: { $0.id == note.id }) else { return }
+        notes[i].isPinned.toggle()
+        notes[i].updatedAt = .now
+        sortInPlace()
+        save()
+    }
+
+    /// 切换便签的锁定状态。
+    func toggleLocked(_ note: Note) {
+        guard let i = notes.firstIndex(where: { $0.id == note.id }) else { return }
+        notes[i].isLocked.toggle()
+        notes[i].updatedAt = .now
+        save()
+    }
+
+    /// F5：复制一条新便签（ID/时间重置，保留标题/内容/标签/颜色/星标，不保留锁定）。
+    @discardableResult
+    func duplicate(_ note: Note) -> Note {
+        var copy = Note(title: note.title.isEmpty ? "" : note.title + " 副本",
+                        content: note.content,
+                        tags: note.tags,
+                        colorHex: note.colorHex,
+                        isPinned: note.isPinned,
+                        isLocked: false)
+        notes.insert(copy, at: 0)
+        sortInPlace()
+        save()
+        return copy
+    }
+
     // MARK: - Sorting
 
     /// 变更排序顺序（会持久化到 prefs.json）。
@@ -110,7 +144,9 @@ final class NoteStore {
     }
 
     private func sortInPlace() {
+        // F3：星标（isPinned=true）始终排最前；组内按 sortOrder 排序。
         notes.sort { a, b in
+            if a.isPinned != b.isPinned { return a.isPinned && !b.isPinned }
             switch sortOrder {
             case .updatedDesc: return a.updatedAt > b.updatedAt
             case .updatedAsc:  return a.updatedAt < b.updatedAt

@@ -8,6 +8,10 @@ struct Note: Identifiable, Codable, Hashable {
     var tags: [String] = []
     /// 颜色主题：默认 "" → .default；其他值映射到 NoteColorTheme
     var colorHex: String = ""
+    /// 星标：置顶显示（F3）
+    var isPinned: Bool = false
+    /// 锁定：删除前需要二次确认（F3）
+    var isLocked: Bool = false
     var createdAt: Date = .now
     var updatedAt: Date = .now
 
@@ -17,6 +21,8 @@ struct Note: Identifiable, Codable, Hashable {
          content: String,
          tags: [String] = [],
          colorHex: String = "",
+         isPinned: Bool = false,
+         isLocked: Bool = false,
          createdAt: Date = .now,
          updatedAt: Date = .now) {
         self.id = id
@@ -24,12 +30,14 @@ struct Note: Identifiable, Codable, Hashable {
         self.content = content
         self.tags = tags
         self.colorHex = colorHex
+        self.isPinned = isPinned
+        self.isLocked = isLocked
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, title, content, tags, colorHex, createdAt, updatedAt
+        case id, title, content, tags, colorHex, isPinned, isLocked, createdAt, updatedAt
     }
 
     init(from decoder: Decoder) throws {
@@ -39,6 +47,8 @@ struct Note: Identifiable, Codable, Hashable {
         content = try c.decode(String.self, forKey: .content)
         tags = try c.decodeIfPresent([String].self, forKey: .tags) ?? []
         colorHex = try c.decodeIfPresent(String.self, forKey: .colorHex) ?? ""
+        isPinned = try c.decodeIfPresent(Bool.self, forKey: .isPinned) ?? false
+        isLocked = try c.decodeIfPresent(Bool.self, forKey: .isLocked) ?? false
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? .now
         updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? .now
     }

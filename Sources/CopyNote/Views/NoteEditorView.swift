@@ -2,11 +2,13 @@ import SwiftUI
 import AppKit
 
 /// 便签编辑器：色卡选择器 + 纸张背景 + 标题/内容 + 标签；实时回写 store。
+/// F1：支持 Markdown 预览切换。
 struct NoteEditorView: View {
     @Binding var note: Note
     @Environment(NoteStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var newTagText = ""
+    @State private var showPreview = false  // F1：编辑 vs 预览
 
     private var theme: NoteColorTheme { NoteColorTheme(fromHex: note.colorHex) }
     private var wordCount: Int { note.content.isEmpty ? 0 : note.content.split(whereSeparator: \.isWhitespace).count }
@@ -47,7 +49,41 @@ struct NoteEditorView: View {
             Text("编辑便签")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.secondary)
+            // F3：星标 + 锁定
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) { note.isPinned.toggle() }
+            } label: {
+                Image(systemName: note.isPinned ? "pin.fill" : "pin.slash")
+                    .font(.system(size: 11))
+                    .foregroundStyle(note.isPinned ? .orange : .primary.opacity(0.5))
+            }
+            .buttonStyle(.plain)
+            .help(note.isPinned ? "取消星标" : "加为星标（置顶）")
+
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) { note.isLocked.toggle() }
+            } label: {
+                Image(systemName: note.isLocked ? "lock.fill" : "lock.open")
+                    .font(.system(size: 11))
+                    .foregroundStyle(note.isLocked ? Color(nsColor: .systemIndigo) : .primary.opacity(0.5))
+            }
+            .buttonStyle(.plain)
+            .help(note.isLocked ? "解除锁定" : "锁定便签（删除前需二次确认）")
+
             Spacer()
+
+            // F1：Markdown 预览切换
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { showPreview.toggle() }
+            } label: {
+                Image(systemName: showPreview ? "eye.slash" : "eye")
+                    .font(.system(size: 11))
+                    .foregroundStyle(showPreview ? Color.accentColor : .primary.opacity(0.6))
+            }
+            .buttonStyle(.plain)
+            .padding(.trailing, 4)
+            .help(showPreview ? "返回编辑模式" : "Markdown 预览")
+
             Text("\(wordCount) 字 · \(charCount) 字符")
                 .font(.system(size: 10))
                 .foregroundStyle(.tertiary)
@@ -100,10 +136,11 @@ struct NoteEditorView: View {
         .padding(.vertical, 4)
     }
 
-    // MARK: - 内容编辑器（纸张渐变 U5）
+    // MARK: - 内容编辑器（F1：编辑 vs Markdown 预览切换）
 
     private var contentEditor: some View {
-        ZStack(alignment: .topLeading) {
+        ZStack {
+            // 背景纸张（始终保留）
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(
                     LinearGradient(colors: [theme.paperPrimary, theme.paperSecondary],
@@ -114,20 +151,53 @@ struct NoteEditorView: View {
                         .stroke(theme.swatchStroke.opacity(theme == .default ? 0.12 : 0.35),
                                 lineWidth: 0.8)
                 )
-            TextEditor(text: $note.content)
-                .font(.system(size: 13, design: .rounded))
-                .scrollContentBackground(.hidden)
-                .padding(8)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            if note.content.isEmpty {
-                Text("开始书写内容…支持换行，Markdown 可选。")
-                    .font(.system(size: 13, design: .rounded))
-                    .foregroundStyle(.placeholder)
-                    .padding(14)
-                    .allowsHitTesting(false)
+            if showPreview {
+                // F1：Markdown 预览
+                ScrollView {
+                    HStack {
+                        Text(MarkdownRenderer.render(note.content))
+                            .font(.system(size: 13, design: .rounded))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Spacer()
+                    }
+                    .padding(12)
+                }
+                .overlay(
+                    // 预览模式标签
+                    HStack {
+                        Spacer()
+                        Text("预览")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.accentColor, in: Capsule())
+                            .padding(6)
+                    },
+                    alignment: .topTrailing
+                )
+                .transition(.opacity.combined(with: .scale(scale: 0.985)))
+            } else {
+                // 编辑模式
+                ZStack(alignment: .topLeading) {
+                    TextEditor(text: $note.content)
+                        .font(.system(size: 13, design: .rounded))
+                        .scrollContentBackground(.hidden)
+                        .padding(8)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    if note.content.isEmpty {
+                        Text("开始书写内容…支持换行，Markdown 可选。")
+                            .font(.system(size: 13, design: .rounded))
+                            .foregroundStyle(.placeholder)
+                            .padding(14)
+                            .allowsHitTesting(false)
+                    }
+                }
+                .transition(.opacity.combined(with: .scale(scale: 1.01)))
             }
         }
         .frame(minHeight: 190)
+        .animation(.easeInOut(duration: 0.2), value: showPreview)
     }
 
     // MARK: - 标签区（U3：统一胶囊 + 常用标签快速条）
