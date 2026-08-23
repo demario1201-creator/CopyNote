@@ -1,72 +1,227 @@
 import SwiftUI
+import AppKit
 
-/// 便签编辑器：标题 + 内容 + 标签；实时回写 store。
+/// 便签编辑器：色卡选择器 + 纸张背景 + 标题/内容 + 标签；实时回写 store。
 struct NoteEditorView: View {
     @Binding var note: Note
     @Environment(NoteStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var newTagText = ""
 
+    private var theme: NoteColorTheme { NoteColorTheme(fromHex: note.colorHex) }
+    private var wordCount: Int { note.content.isEmpty ? 0 : note.content.split(whereSeparator: \.isWhitespace).count }
+    private var charCount: Int { note.content.count }
+
     var body: some View {
-        VStack(spacing: 12) {
-            TextField("标题", text: $note.title)
-                .textFieldStyle(.roundedBorder)
-                .font(.headline)
-            tagsSection
-            TextEditor(text: $note.content)
-                .font(.body)
-                .frame(minHeight: 160)
-                .padding(4)
-                .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 6))
-            HStack {
-                Spacer()
-                Button("完成") { dismiss() }
-                    .buttonStyle(.borderedProminent)
+        VStack(spacing: 0) {
+            header
+            Divider().opacity(0.4)
+            VStack(alignment: .leading, spacing: 10) {
+                titleField
+                colorPickerRow
+                contentEditor
+                tagsSection
             }
+            .padding(14)
+            .background(paperBackground)
+            Divider().opacity(0.4)
+            footer
         }
-        .padding()
-        .frame(width: 380, height: 420)
+        .frame(width: 420, height: 520)
+        .background(Color(nsColor: NSColor.windowBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .shadow(color: .black.opacity(0.18), radius: 18, x: 0, y: 6)
         .onChange(of: note) { _, newNote in
             store.update(newNote)
         }
     }
 
+    // MARK: - 顶部标题栏
+
+    private var header: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(theme.swatch)
+                .frame(width: 10, height: 10)
+                .overlay(Circle().stroke(theme.swatchStroke.opacity(0.8), lineWidth: 1))
+            Text("编辑便签")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text("\(wordCount) 字 · \(charCount) 字符")
+                .font(.system(size: 10))
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    // MARK: - 标题输入（无边框）
+
+    private var titleField: some View {
+        TextField("便签标题…", text: $note.title)
+            .textFieldStyle(.plain)
+            .font(.system(size: 18, weight: .bold, design: .rounded))
+            .padding(.horizontal, 2)
+            .padding(.bottom, 2)
+    }
+
+    // MARK: - 色卡选择器（F2）
+
+    private var colorPickerRow: some View {
+        HStack(spacing: 6) {
+            ForEach(NoteColorTheme.allCases) { t in
+                Button {
+                    note.colorHex = (t == .default) ? "" : t.toHex
+                } label: {
+                    ZStack {
+                        Circle()
+                            .fill(t.swatch)
+                            .frame(width: 22, height: 22)
+                        if theme.id == t.id {
+                            Circle()
+                                .stroke(t.swatchStroke, lineWidth: 2)
+                                .frame(width: 26, height: 26)
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(t == .default ? Color.primary : .white)
+                        } else {
+                            Circle()
+                                .stroke(t.swatchStroke.opacity(0.5), lineWidth: 0.8)
+                                .frame(width: 22, height: 22)
+                        }
+                    }
+                    .frame(width: 28, height: 28)
+                }
+                .buttonStyle(.plain)
+                .help(t.name)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    // MARK: - 内容编辑器（纸张渐变 U5）
+
+    private var contentEditor: some View {
+        ZStack(alignment: .topLeading) {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(
+                    LinearGradient(colors: [theme.paperPrimary, theme.paperSecondary],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(theme.swatchStroke.opacity(theme == .default ? 0.12 : 0.35),
+                                lineWidth: 0.8)
+                )
+            TextEditor(text: $note.content)
+                .font(.system(size: 13, design: .rounded))
+                .scrollContentBackground(.hidden)
+                .padding(8)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if note.content.isEmpty {
+                Text("开始书写内容…支持换行，Markdown 可选。")
+                    .font(.system(size: 13, design: .rounded))
+                    .foregroundStyle(.placeholder)
+                    .padding(14)
+                    .allowsHitTesting(false)
+            }
+        }
+        .frame(minHeight: 190)
+    }
+
+    // MARK: - 标签区（U3：统一胶囊 + 常用标签快速条）
+
     private var tagsSection: some View {
         VStack(alignment: .leading, spacing: 6) {
+            // 常用标签快速点击（最多取 store.allTags 前 6 个未添加的）
+            let quickTags = store.allTags.filter { !note.tags.contains($0) }.prefix(6)
+            if !quickTags.isEmpty {
+                HStack(spacing: 4) {
+                    Text("常用:")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.tertiary)
+                    ForEach(quickTags, id: \.self) { tag in
+                        Button {
+                            if !note.tags.contains(tag) {
+                                withAnimation(.easeInOut(duration: 0.15)) { note.tags.append(tag) }
+                            }
+                        } label: {
+                            Text("#\(tag)")
+                                .font(.system(size: 9.5, weight: .medium))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.accentColor.opacity(0.08), in: Capsule())
+                                .overlay(Capsule().stroke(Color.accentColor.opacity(0.2), lineWidth: 0.6))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+
+            // 输入框
             HStack(spacing: 6) {
                 TextField("添加标签，回车确认", text: $newTagText)
                     .textFieldStyle(.roundedBorder)
+                    .controlSize(.small)
                     .onSubmit(addTag)
                 Button(action: addTag) {
                     Image(systemName: "plus.circle.fill")
-                        .foregroundStyle(.tint)
+                        .font(.system(size: 14))
+                        .foregroundStyle(Color.accentColor)
                 }
                 .buttonStyle(.plain)
                 .disabled(newTagText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
+
+            // 已添加标签（U3：hover 胶囊样式）
             if !note.tags.isEmpty {
-                FlowLayout(spacing: 6) {
+                FlowLayout(spacing: 5) {
                     ForEach(note.tags, id: \.self) { tag in
-                        HStack(spacing: 4) {
-                            Text("#\(tag)")
-                                .font(.caption.weight(.medium))
-                            Button {
+                        TagWithRemove(tag: tag) {
+                            withAnimation(.easeInOut(duration: 0.15)) {
                                 note.tags.removeAll { $0 == tag }
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundStyle(.secondary)
                             }
-                            .buttonStyle(.plain)
                         }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(.tint.opacity(0.12), in: Capsule())
-                        .overlay(Capsule().stroke(.tint.opacity(0.25), lineWidth: 1))
                     }
                 }
             }
         }
     }
+
+    // MARK: - 底部操作栏
+
+    private var footer: some View {
+        HStack {
+            Button(role: .cancel) { dismiss() } label: {
+                Text("取消")
+            }
+            .keyboardShortcut(.cancelAction)
+            Spacer()
+            Button { dismiss() } label: {
+                Text("保存")
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            .buttonStyle(.borderedProminent)
+            .keyboardShortcut(.defaultAction)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    // MARK: - 纸张背景
+
+    private var paperBackground: some View {
+        RoundedRectangle(cornerRadius: 0)
+            .fill(
+                LinearGradient(colors: [
+                    theme.paperPrimary.opacity(0.6),
+                    theme.paperSecondary.opacity(0.5)
+                ], startPoint: .top, endPoint: .bottom)
+            )
+    }
+
+    // MARK: - 辅助
 
     private func addTag() {
         let text = newTagText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -74,12 +229,47 @@ struct NoteEditorView: View {
             newTagText = ""
             return
         }
-        note.tags.append(text)
+        withAnimation(.easeInOut(duration: 0.15)) { note.tags.append(text) }
         newTagText = ""
     }
 }
 
-/// 简易流式布局容器。
+// MARK: - 标签 + 删除按钮（U3 胶囊统一）
+
+private struct TagWithRemove: View {
+    let tag: String
+    let onRemove: () -> Void
+    @State private var hovered = false
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Text("#\(tag)")
+                .font(.system(size: 9.5, weight: .medium))
+            Button(action: onRemove) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary.opacity(hovered ? 0.9 : 0.5))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 7)
+        .padding(.vertical, 2.5)
+        .background(
+            Capsule().fill(
+                Color.accentColor.opacity(hovered ? 0.16 : 0.12)
+            )
+        )
+        .overlay(
+            Capsule().stroke(Color.accentColor.opacity(hovered ? 0.32 : 0.24), lineWidth: 0.7)
+        )
+        .scaleEffect(hovered ? 1.03 : 1)
+        .onHover { h in withAnimation(.easeInOut(duration: 0.12)) { hovered = h } }
+        .help("移除标签 \(tag)")
+    }
+}
+
+// MARK: - 简易流式布局容器
+
 private struct FlowLayout: Layout {
     var spacing: CGFloat = 8
 
@@ -125,4 +315,3 @@ private struct FlowLayout: Layout {
         return rows
     }
 }
-

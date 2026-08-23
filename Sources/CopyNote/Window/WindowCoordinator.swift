@@ -29,9 +29,11 @@ final class WindowCoordinator: NSObject {
         // 主窗口
         let mainRect = NSRect(x: 0, y: 0, width: 360, height: 520)
         let main = NSWindow(contentRect: mainRect,
-                            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+                            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                             backing: .buffered, defer: false)
         main.title = "CopyNote"
+        main.titlebarAppearsTransparent = true
+        main.titleVisibility = .hidden
         main.isReleasedWhenClosed = false
         main.contentView = NSHostingView(
             rootView: MainNoteListView(

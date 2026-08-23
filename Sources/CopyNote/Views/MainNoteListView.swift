@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// 主窗口根视图：工具栏（新建/置顶/排序/隐藏为悬浮条）+ 搜索 + 便签列表。
 struct MainNoteListView: View {
@@ -7,7 +8,6 @@ struct MainNoteListView: View {
     @State private var editingNote = Note(title: "", content: "")
     @State private var isEditing = false
     @State private var isPinned = false
-    @State private var showSortMenu = false
     @State private var selectedTag: String? = nil
     @State private var isCompact = false
     @AppStorage("copynote.isCompact") private var isCompactPersisted = false
@@ -42,7 +42,6 @@ struct MainNoteListView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             toolbar
-            Divider()
             if displayed.isEmpty {
                 SearchBar(text: $searchText).padding(10)
                 if !store.allTags.isEmpty {
@@ -50,16 +49,15 @@ struct MainNoteListView: View {
                         .padding(.horizontal, 10)
                         .padding(.bottom, 6)
                 }
-                Divider()
                 emptyState
             } else {
                 List {
                     Section {
-                        ForEach(displayed) { note in
+                        ForEach(displayed, id: \.id) { note in
                             NoteRowView(note: note,
                                         compact: isCompact,
                                         onEdit: { edit(note) },
-                                        onDelete: { store.delete(note) })
+                                        onDelete: { withAnimation(.easeInOut(duration: 0.25)) { store.delete(note) } })
                                 .contextMenu {
                                     Button("编辑") { edit(note) }
                                     Button {
@@ -69,18 +67,20 @@ struct MainNoteListView: View {
                                     }
                                     Menu("添加标签") {
                                         ForEach(store.allTags, id: \.self) { tag in
-                                            Button(tag) { store.addTag(tag, to: note) }
+                                            Button(tag) { withAnimation { store.addTag(tag, to: note) } }
                                                 .disabled(note.tags.contains(tag))
                                         }
                                     }
                                     Menu("移除标签") {
                                         ForEach(note.tags, id: \.self) { tag in
-                                            Button("#\(tag)") { store.removeTag(tag, from: note) }
+                                            Button("#\(tag)") { withAnimation { store.removeTag(tag, from: note) } }
                                         }
                                     }
                                     Divider()
-                                    Button("删除", role: .destructive) { store.delete(note) }
+                                    Button("删除", role: .destructive) { withAnimation(.easeInOut(duration: 0.25)) { store.delete(note) } }
                                 }
+                                .transition(.asymmetric(insertion: .scale.combined(with: .opacity).animation(.spring(response: 0.35, dampingFraction: 0.8)),
+                                                       removal: .opacity.combined(with: .move(edge: .leading))))
                         }
                     } header: {
                         VStack(alignment: .leading, spacing: 6) {
@@ -95,84 +95,83 @@ struct MainNoteListView: View {
                     }
                 }
                 .listStyle(.inset)
+                .scrollContentBackground(.hidden)
             }
         }
         .frame(minWidth: 320, minHeight: 400)
+        .background(.ultraThinMaterial)
         .sheet(isPresented: $isEditing) {
             NoteEditorView(note: $editingNote)
         }
         .onAppear { isCompact = isCompactPersisted }
-        .onChange(of: isCompact) { _, value in isCompactPersisted = value }
+        .onChange(of: isCompact) { _, value in
+            withAnimation(.easeInOut(duration: 0.25)) {
+                isCompactPersisted = value
+            }
+        }
     }
+
+    // MARK: - 标签筛选条
 
     private var tagFilterBar: some View {
         let accent = Color(nsColor: NSColor.controlAccentColor)
         return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
-                Button {
-                    selectedTag = nil
-                } label: {
+                HoverableTagCapsule(bgColor: tagAllBgColor,
+                                    borderColor: tagAllBorderColor,
+                                    selected: selectedTag == nil) {
                     Label("全部", systemImage: "line.3.horizontal.decrease.circle")
                         .font(.caption.weight(.medium))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(tagAllBgColor.opacity(selectedTag == nil ? 0.25 : 0.1),
-                                    in: Capsule())
-                        .overlay(Capsule().stroke(tagAllBorderColor.opacity(0.3),
-                                                   lineWidth: 1))
+                } onClick: {
+                    withAnimation(.easeInOut(duration: 0.2)) { selectedTag = nil }
                 }
-                .buttonStyle(.plain)
                 ForEach(store.allTags, id: \.self) { tag in
-                    Button {
-                        selectedTag = (selectedTag == tag) ? nil : tag
-                    } label: {
+                    HoverableTagCapsule(bgColor: accent,
+                                        borderColor: accent,
+                                        selected: selectedTag == tag) {
                         Text("#\(tag)")
                             .font(.caption.weight(.medium))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(accent.opacity(selectedTag == tag ? 0.25 : 0.08),
-                                        in: Capsule())
-                            .overlay(Capsule().stroke(accent.opacity(0.3),
-                                                       lineWidth: 1))
+                    } onClick: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selectedTag = (selectedTag == tag) ? nil : tag
+                        }
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }
     }
 
+    // MARK: - 工具栏
+
     private var toolbar: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 4) {
             Image(nsImage: AppIconFactory.makeStatusBarImage(length: 16))
-            Text("CopyNote").font(.headline).lineLimit(1).layoutPriority(1)
+            Text("CopyNote")
+                .font(.system(size: 13, weight: .semibold))
+                .lineLimit(1)
+                .foregroundStyle(.primary.opacity(0.85))
+                .layoutPriority(1)
             Spacer(minLength: 4)
-            Button { newNote() } label: {
-                Label("新建", systemImage: "plus").labelStyle(.iconOnly)
-            }
-            .buttonStyle(.borderless)
-            .help("新建便签")
+            ToolbarHoverButton(title: "新建便签", systemImage: "plus", action: newNote)
             Menu {
-                Button {
-                    ImportExportService.exportAll(store.notes)
-                } label: {
+                Button { ImportExportService.exportAll(store.notes) } label: {
                     Label("导出全部便签", systemImage: "square.and.arrow.up")
                 }
-                Button {
-                    let _ = ImportExportService.importNotes(store: store)
-                } label: {
+                Button { let _ = ImportExportService.importNotes(store: store) } label: {
                     Label("导入便签 JSON", systemImage: "square.and.arrow.down")
                 }
             } label: {
-                Label("导入导出", systemImage: "square.and.arrow.up.on.square").labelStyle(.iconOnly)
+                ToolbarHoverButtonLabel(systemImage: "square.and.arrow.up.on.square", title: "导入/导出便签 JSON")
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
-            .frame(width: 24)
-            .help("导入/导出便签 JSON")
+            .frame(width: 28, height: 28)
             Menu {
                 Picker("排序", selection: Binding(
                     get: { store.sortOrder },
-                    set: { store.setSortOrder($0) }
+                    set: { newValue in
+                        withAnimation(.easeInOut(duration: 0.3)) { store.setSortOrder(newValue) }
+                    }
                 )) {
                     ForEach(NoteStore.SortOrder.allCases) { order in
                         Label(order.rawValue, systemImage: order.symbol).tag(order)
@@ -180,59 +179,208 @@ struct MainNoteListView: View {
                 }
                 .labelsHidden()
             } label: {
-                Label("排序", systemImage: "arrow.up.arrow.down").labelStyle(.iconOnly)
+                ToolbarHoverButtonLabel(systemImage: "arrow.up.arrow.down", title: "排序：单击切换 / 长按展开")
             } primaryAction: {
                 let cases = NoteStore.SortOrder.allCases
                 if let i = cases.firstIndex(of: store.sortOrder) {
-                    let next = cases[(i + 1) % cases.count]
-                    store.setSortOrder(next)
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        store.setSortOrder(cases[(i + 1) % cases.count])
+                    }
                 }
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
-            .frame(width: 24)
-            .help("排序：单击切换 / 长按展开")
-            Toggle(isOn: $isCompact) {
-                Label("紧凑", systemImage: isCompact ? "rectangle.compress.vertical" : "rectangle.expand.vertical")
-                    .labelStyle(.iconOnly)
-            }
-            .toggleStyle(.button)
-            .help(isCompact ? "展开显示" : "紧凑显示")
-            Toggle(isOn: $isPinned) {
-                Label("置顶", systemImage: "pin").labelStyle(.iconOnly)
-            }
-            .toggleStyle(.button)
-            .help(isPinned ? "取消置顶" : "窗口置顶")
-            .onChange(of: isPinned) { _, _ in onTogglePin() }
-            Button { onHide() } label: {
-                Label("悬浮", systemImage: "sidebar.right").labelStyle(.iconOnly)
-            }
-            .buttonStyle(.borderless)
-            .help("隐藏为悬浮条")
+            .frame(width: 28, height: 28)
+
+            HoverableToolbarToggle(isOn: $isCompact,
+                                   onTitle: "展开显示",
+                                   offTitle: "紧凑显示",
+                                   onImage: "rectangle.compress.vertical",
+                                   offImage: "rectangle.expand.vertical")
+
+            HoverableToolbarToggle(isOn: $isPinned,
+                                   onTitle: "取消置顶",
+                                   offTitle: "窗口置顶",
+                                   onImage: "pin.fill",
+                                   offImage: "pin",
+                                   onChange: onTogglePin)
+
+            ToolbarHoverButton(title: "隐藏为悬浮条",
+                               systemImage: "sidebar.right",
+                               action: onHide)
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.top, 10)
+        .padding(.bottom, 6)
     }
 
+    // MARK: - 空状态（U6 插画）
+
     private var emptyState: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "note.text").font(.system(size: 40)).foregroundStyle(.secondary)
-            Text(searchText.isEmpty ? "还没有便签" : "无匹配结果")
-                .foregroundStyle(.secondary)
+        VStack(spacing: 14) {
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: "square.stack.3d.up")
+                    .font(.system(size: 64))
+                    .foregroundStyle(.tertiary)
+                Image(systemName: "note.text.badge.plus")
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(Color(nsColor: NSColor.controlAccentColor), .white)
+                    .offset(x: 6, y: -6)
+            }
+            .padding(.bottom, 4)
+
+            VStack(spacing: 4) {
+                Text(searchText.isEmpty ? "还没有便签" : "无匹配结果")
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+                if searchText.isEmpty {
+                    Text("点击下方按钮创建你的第一条便签，或使用 ⌥⌘N 随时呼出。")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .multilineTextAlignment(.center)
+                }
+            }
+
             if searchText.isEmpty {
-                Button("新建便签") { newNote() }
+                Button { newNote() } label: {
+                    Label("新建便签", systemImage: "plus.circle.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
             }
         }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    // MARK: - 便签操作（带动画 A2）
+
     private func newNote() {
-        editingNote = store.add()
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            editingNote = store.add()
+        }
         isEditing = true
     }
 
     private func edit(_ note: Note) {
         editingNote = note
         isEditing = true
+    }
+}
+
+// MARK: - 工具栏按钮共用组件（A4 hover 微交互）
+
+private struct ToolbarHoverButton: View {
+    let title: String
+    let systemImage: String
+    let action: () -> Void
+    @State private var hovered = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 13))
+                .frame(width: 28, height: 28)
+                .background(hovered ? Color.accentColor.opacity(0.12) : Color.clear,
+                            in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .stroke(hovered ? Color.accentColor.opacity(0.25) : Color.clear, lineWidth: 0.5)
+                )
+                .contentShape(Rectangle())
+                .scaleEffect(hovered ? 1.05 : 1)
+        }
+        .buttonStyle(.plain)
+        .help(title)
+        .onHover { h in withAnimation(.easeInOut(duration: 0.15)) { hovered = h } }
+    }
+}
+
+private struct ToolbarHoverButtonLabel: View {
+    let systemImage: String
+    let title: String
+    @State private var hovered = false
+
+    var body: some View {
+        Image(systemName: systemImage)
+            .font(.system(size: 13))
+            .frame(width: 28, height: 28)
+            .background(hovered ? Color.accentColor.opacity(0.12) : Color.clear,
+                        in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .stroke(hovered ? Color.accentColor.opacity(0.25) : Color.clear, lineWidth: 0.5)
+            )
+            .scaleEffect(hovered ? 1.05 : 1)
+            .help(title)
+            .onHover { h in withAnimation(.easeInOut(duration: 0.15)) { hovered = h } }
+    }
+}
+
+private struct HoverableToolbarToggle: View {
+    @Binding var isOn: Bool
+    let onTitle: String
+    let offTitle: String
+    let onImage: String
+    let offImage: String
+    var onChange: (() -> Void)?
+    @State private var hovered = false
+
+    var body: some View {
+        Button {
+            isOn.toggle()
+        } label: {
+            Image(systemName: isOn ? onImage : offImage)
+                .font(.system(size: 13))
+                .foregroundStyle(isOn ? Color.accentColor : .primary)
+                .frame(width: 28, height: 28)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(isOn ? Color.accentColor.opacity(0.15) : (hovered ? Color.accentColor.opacity(0.08) : Color.clear))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .stroke(isOn ? Color.accentColor.opacity(0.3) : (hovered ? Color.accentColor.opacity(0.2) : Color.clear), lineWidth: 0.5)
+                )
+                .scaleEffect(hovered ? 1.05 : 1)
+        }
+        .buttonStyle(.plain)
+        .help(isOn ? onTitle : offTitle)
+        .onHover { h in withAnimation(.easeInOut(duration: 0.15)) { hovered = h } }
+        .onChange(of: isOn) { _, _ in onChange?() }
+    }
+}
+
+// MARK: - 标签胶囊共用组件（A4 hover + U3 视觉统一）
+
+private struct HoverableTagCapsule<Content: View>: View {
+    let bgColor: Color
+    let borderColor: Color
+    let selected: Bool
+    @ViewBuilder let content: () -> Content
+    let onClick: () -> Void
+    @State private var hovered = false
+
+    var body: some View {
+        Button(action: onClick) {
+            content()
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(
+                    Capsule().fill(
+                        selected ? bgColor.opacity(0.25) : (hovered ? bgColor.opacity(0.14) : bgColor.opacity(0.08))
+                    )
+                )
+                .overlay(
+                    Capsule()
+                        .stroke((selected ? borderColor : borderColor.opacity(0.6)).opacity(hovered ? 0.4 : 0.3),
+                                lineWidth: 1)
+                )
+                .scaleEffect(hovered ? 1.05 : 1)
+        }
+        .buttonStyle(.plain)
+        .onHover { h in withAnimation(.easeInOut(duration: 0.12)) { hovered = h } }
     }
 }
