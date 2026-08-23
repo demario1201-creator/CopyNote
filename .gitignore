@@ -1,0 +1,28 @@
+# Build artifacts
+.build/
+dist/
+DerivedData/
+build/
+
+# SwiftPM
+.swiftpm/
+Package.resolved
+
+# Xcode
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# macOS
+.DS_Store
+*.swp
+*~
+
+# Secrets / env (never commit)
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+secrets/
+credentials.json
