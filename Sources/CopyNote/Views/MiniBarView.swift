@@ -234,29 +234,13 @@ private struct MiniPeekNoteRow: View {
                 .padding(.top, 4)
 
             VStack(alignment: .leading, spacing: 2) {
-                // 标题 + 尾端 pin/lock 图标
+                // 标题（不显示时间 / 收藏 / 锁定标记）
                 HStack(alignment: .center, spacing: 4) {
                     Text(note.title.isEmpty ? "无标题" : note.title)
                         .font(.system(size: 11, weight: .semibold))
                         .lineLimit(1)
                         .foregroundStyle(.primary)
                     Spacer(minLength: 0)
-                    HStack(spacing: 2) {
-                        if note.isPinned {
-                            Image(systemName: "star.fill")
-                                .font(.system(size: 7.5))
-                                .foregroundStyle(.orange)
-                        }
-                        if note.isLocked {
-                            Image(systemName: "lock.fill")
-                                .font(.system(size: 7.5))
-                                .foregroundStyle(.purple)
-                        }
-                        Text(miniDate(note.updatedAt))
-                            .font(.system(size: 8.5))
-                            .foregroundStyle(.quaternary)
-                            .padding(.leading, 2)
-                    }
                 }
 
                 // 正文：有标签 → 前 3 个标签 chip；无标签 → 内容单行首段截断（最多 90 字 + 省略号）

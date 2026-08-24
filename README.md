@@ -72,8 +72,30 @@
 
 1. 前往 [Releases 页面](https://github.com/demario1201-creator/CopyNote/releases) 下载最新 `CopyNote.zip`
 2. 解压后将 `CopyNote.app` 拖入「应用程序」文件夹
-3. 首次运行如被 Gatekeeper 拦截：
-   - 打开「系统设置 → 隐私与安全性」→ 点击「仍要打开」
+3. ⚠️ **首次打开被 macOS 拦截（「CopyNote.app 已损坏，无法打开 / 移到废纸篓」）怎么办？**
+   这是 macOS Gatekeeper 对**未签名/未公证**第三方应用的正常保护。选择以下任一方式解除（**推荐方式一**，只需一次）：
+
+   **方式 ① · 右键 → 打开（最快）**
+   1. 找到 `CopyNote.app`（通常在「应用程序」或「下载」）
+   2. 按住 **Control 键** → 单击 `CopyNote.app` → **打开**（不要双击）
+   3. 弹出确认对话框 → 再次点 **打开**
+   4. 之后再双击启动不会被拦截
+
+   **方式 ② · 系统设置里放行**
+   1. 先双击尝试打开（看到「已损坏…移到废纸篓」对话框后，不要移到废纸篓，点「取消」）
+   2. 打开「系统设置 → 隐私与安全性」→ 向下滚动
+   3. 会看到提示：「“CopyNote” 已被阻止，因为它来自不被识别的开发者」→ 点 **仍要打开**
+   4. 二次确认对话框 → 点 **打开**
+
+   **方式 ③ · 命令行去除隔离标记**
+   ```bash
+   # 如果放在「应用程序」：
+   xattr -dr com.apple.quarantine /Applications/CopyNote.app
+
+   # 如果放在「下载」：
+   xattr -dr com.apple.quarantine ~/Downloads/CopyNote.app
+   ```
+   执行后再次双击打开即可。
 
 ### 方式二：源码编译
 
