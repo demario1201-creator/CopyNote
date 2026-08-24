@@ -191,7 +191,7 @@ struct MiniBarView: View {
     /// peek 态点击某条便签：快速复制内容 → 系统剪贴板；同时触发 copied flash 动画
     private func quickCopy(_ note: Note, flashedID: Binding<UUID?>) {
         let text = note.content.isEmpty ? note.title : note.content
-        ClipboardService.copy(text)
+        ClipboardService.copy(text, noteID: note.id, noteTitle: note.title)
         // UI：先设置 flash
         flashedID.wrappedValue = note.id
         // 0.9s 后自动清掉 flash（为了避免连续点击抖动，用一个 DispatchWork，新的点击覆盖老的）
@@ -243,7 +243,7 @@ private struct MiniPeekNoteRow: View {
                     Spacer(minLength: 0)
                     HStack(spacing: 2) {
                         if note.isPinned {
-                            Image(systemName: "pin.fill")
+                            Image(systemName: "star.fill")
                                 .font(.system(size: 7.5))
                                 .foregroundStyle(.orange)
                         }

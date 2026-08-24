@@ -49,16 +49,16 @@ struct NoteEditorView: View {
             Text("编辑便签")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.secondary)
-            // F3：星标 + 锁定
+            // F3：收藏 + 锁定
             Button {
                 withAnimation(.easeInOut(duration: 0.15)) { note.isPinned.toggle() }
             } label: {
-                Image(systemName: note.isPinned ? "pin.fill" : "pin.slash")
+                Image(systemName: note.isPinned ? "star.fill" : "star")
                     .font(.system(size: 11))
                     .foregroundStyle(note.isPinned ? .orange : .primary.opacity(0.5))
             }
             .buttonStyle(.plain)
-            .help(note.isPinned ? "取消星标" : "加为星标（置顶）")
+            .help(note.isPinned ? "取消收藏" : "收藏")
 
             Button {
                 withAnimation(.easeInOut(duration: 0.15)) { note.isLocked.toggle() }

@@ -35,7 +35,7 @@ struct NoteRowView: View {
             withAnimation(.easeInOut(duration: 0.18)) { hovered = hovering }
         }
         .onTapGesture {
-            ClipboardService.copy(copyText)
+            ClipboardService.copy(copyText, noteID: note.id, noteTitle: note.title)
             triggerCopiedFeedback()
         }
     }
@@ -55,15 +55,15 @@ struct NoteRowView: View {
             HStack(alignment: .top, spacing: 0) {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .center, spacing: 6) {
-                        // F3：星标按钮 + 锁定指示
+                        // F3：收藏按钮 + 锁定指示
                         HStack(spacing: 2) {
                             Button { withAnimation(.easeInOut(duration: 0.15)) { onTogglePinned() } } label: {
-                                Image(systemName: note.isPinned ? "pin.fill" : "pin.slash")
+                                Image(systemName: note.isPinned ? "star.fill" : "star")
                                     .font(.system(size: 10.5))
                                     .foregroundStyle(note.isPinned ? Color.orange : Color.primary.opacity(0.5))
                             }
                             .buttonStyle(.plain)
-                            .help(note.isPinned ? "取消星标" : "加为星标（置顶）")
+                            .help(note.isPinned ? "取消收藏" : "收藏")
                             .opacity(hovered || note.isPinned ? 1 : 0.3)
                             .animation(.easeInOut(duration: 0.15), value: hovered)
 
@@ -189,8 +189,8 @@ struct NoteRowView: View {
                 .fill(theme.swatch)
                 .frame(width: 6, height: 6)
                 .opacity(theme == .default ? 0 : 1)
-            // F3：星标/锁定小图
-            Image(systemName: note.isPinned ? "pin.fill" : "pin.slash")
+            // F3：收藏/锁定小图
+            Image(systemName: note.isPinned ? "star.fill" : "star")
                 .font(.system(size: 8.5))
                 .foregroundStyle(note.isPinned ? .orange : .clear.opacity(0))
                 .frame(width: 10)
