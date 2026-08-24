@@ -10,6 +10,7 @@ struct MainNoteListView: View {
     @State private var searchText = ""
     @State private var editingNote = Note(title: "", content: "")
     @State private var isEditing = false
+    @State private var isNewNote = false
     @State private var isPinned = false
     @State private var selectedTag: String? = nil
 
@@ -99,7 +100,7 @@ struct MainNoteListView: View {
         .frame(minWidth: 320, minHeight: 400)
         .background(.ultraThinMaterial)
         .sheet(isPresented: $isEditing) {
-            NoteEditorView(note: $editingNote)
+            NoteEditorView(note: $editingNote, isNewNote: isNewNote)
         }
         .onAppear {
             isCompact = isCompactPersisted
@@ -122,7 +123,9 @@ struct MainNoteListView: View {
                                   onDuplicate: keyDuplicateSelected,
                                   onCopyContent: { _ = keyCopySelectedContent() },
                                   onDelete: { _ = keyDeleteSelected() },
-                                  onToggleHistory: { withAnimation(.easeInOut(duration: 0.2)) { showHistory.toggle() } })
+                                  onToggleHistory: { withAnimation(.easeInOut(duration: 0.2)) { showHistory.toggle() } },
+                                  onNewNote: { newNote() },
+                                  hasSearchText: { !searchText.isEmpty })
                 .frame(width: 0, height: 0)
         )
     }
@@ -137,8 +140,9 @@ struct MainNoteListView: View {
     private var mainBodyView: some View {
         VStack(alignment: .leading, spacing: 0) {
             toolbar
+            searchHeaderSection
             if displayed.isEmpty {
-                emptyLayoutView
+                emptyState
             } else if isGrouped {
                 groupedContentView
             } else {
@@ -147,34 +151,28 @@ struct MainNoteListView: View {
         }
     }
 
+    /// 搜索框 + 标签筛选固定在工具栏下方，位置稳定，避免随列表/空态切换时 TextField 重建而丢失焦点
     @ViewBuilder
-    private var emptyLayoutView: some View {
-        SearchBar(text: $searchText).padding(10)
-        if !store.allTags.isEmpty {
-            tagFilterBar
-                .padding(.horizontal, 10)
-                .padding(.bottom, 6)
+    private var searchHeaderSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            SearchBar(text: $searchText)
+            if !store.allTags.isEmpty { tagFilterBar }
         }
-        emptyState
+        .padding(.horizontal, 10)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
     }
 
     @ViewBuilder
     private var listContentView: some View {
         List(selection: $selection) {
-            listSectionContent
+            Section {
+                ForEach(displayed, id: \.id, content: rowContent)
+            }
         }
         .listStyle(.inset)
         .scrollContentBackground(.hidden)
         .focusable()
-    }
-
-    @ViewBuilder
-    private var listSectionContent: some View {
-        Section {
-            ForEach(displayed, id: \.id, content: rowContent)
-        } header: {
-            listHeaderView
-        }
     }
 
     /// F6：分组视图 — 按「首个标签」DisclosureGroup；最后一组是未分类
@@ -188,7 +186,7 @@ struct MainNoteListView: View {
                     } label: {
                         HStack(spacing: 6) {
                             if g.key.isEmpty {
-                                Label(g.title, systemImage: "tray")
+                                Label(AppStrings.Group.uncategorized, systemImage: "tray")
                                     .font(.system(size: 12, weight: .semibold))
                             } else {
                                 Label {
@@ -224,24 +222,11 @@ struct MainNoteListView: View {
                         .padding(.vertical, 2)
                     }
                 }
-            } header: {
-                listHeaderView
             }
         }
         .listStyle(.inset)
         .scrollContentBackground(.hidden)
         .focusable()
-    }
-
-    @ViewBuilder
-    private var listHeaderView: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            SearchBar(text: $searchText)
-            if !store.allTags.isEmpty { tagFilterBar }
-        }
-        .padding(.top, 2)
-        .padding(.bottom, 4)
-        .textCase(.none)
     }
 
     @ViewBuilder
@@ -277,41 +262,41 @@ struct MainNoteListView: View {
     @ViewBuilder
     private func rowContextMenu(_ note: Note) -> some View {
         Section {
-            Button("编辑 ⌘E") { edit(note) }
+            Button(AppStrings.NoteAction.edit) { edit(note) }
             Button { _ = requestDelete(note) } label: {
-                Label(note.isLocked ? "删除（锁定，将确认）" : "删除",
+                Label(note.isLocked ? "\(AppStrings.NoteAction.delete)🔒" : AppStrings.NoteAction.delete,
                       systemImage: note.isLocked ? "trash.slash" : "trash")
             }
             Button { store.duplicate(note) } label: {
-                Label("复制副本 ⌘D", systemImage: "plus.square.on.square")
+                Label(AppStrings.NoteAction.duplicate, systemImage: "plus.square.on.square")
             }
             Button { copyContent(note) } label: {
-                Label("复制内容 ⌘↵", systemImage: "doc.on.doc")
+                Label(AppStrings.NoteAction.copyContent, systemImage: "doc.on.doc")
             }
         }
         Divider()
         Section {
             Button { store.togglePinned(note) } label: {
-                Label(note.isPinned ? "取消收藏" : "收藏",
+                Label(note.isPinned ? AppStrings.NoteAction.unfavorite : AppStrings.NoteAction.favorite,
                       systemImage: note.isPinned ? "star.fill" : "star")
             }
             Button { store.toggleLocked(note) } label: {
-                Label(note.isLocked ? "解除锁定" : "锁定便签",
+                Label(note.isLocked ? AppStrings.NoteAction.unlock : AppStrings.NoteAction.lock,
                       systemImage: note.isLocked ? "lock.open" : "lock.fill")
             }
         }
         Divider()
         Section {
             Button { ImportExportService.exportSingle(note) } label: {
-                Label("导出此便签", systemImage: "square.and.arrow.up")
+                Label(AppStrings.App.exportSingle, systemImage: "square.and.arrow.up")
             }
-            Menu("添加标签") {
+            Menu(AppStrings.App.addTag) {
                 ForEach(store.allTags, id: \.self) { tag in
                     Button(tag) { withAnimation { store.addTag(tag, to: note) } }
                         .disabled(note.tags.contains(tag))
                 }
             }
-            Menu("移除标签") {
+            Menu(AppStrings.App.removeTag) {
                 ForEach(note.tags, id: \.self) { tag in
                     Button("#\(tag)") { withAnimation { store.removeTag(tag, from: note) } }
                 }
@@ -362,11 +347,11 @@ struct MainNoteListView: View {
         if note.isLocked {
             // F3：锁定便签 → 显示 NSAlert 二次确认
             let alert = NSAlert()
-            alert.messageText = "删除已锁定的便签"
-            alert.informativeText = "「\(note.title.isEmpty ? "无标题" : note.title)」已锁定，确定要删除吗？此操作不可撤销。"
+            alert.messageText = AppStrings.Delete.lockedTitle
+            alert.informativeText = "「\(note.title.isEmpty ? AppStrings.MiniBar.untitled : note.title)」\(AppStrings.Delete.lockedMessage)"
             alert.alertStyle = .warning
-            alert.addButton(withTitle: "删除")
-            alert.addButton(withTitle: "取消")
+            alert.addButton(withTitle: AppStrings.Delete.confirm)
+            alert.addButton(withTitle: AppStrings.Delete.cancel)
             if let window = NSApp.keyWindow {
                 alert.beginSheetModal(for: window) { resp in
                     if resp == .alertFirstButtonReturn {
@@ -399,7 +384,8 @@ struct MainNoteListView: View {
                 HoverableTagCapsule(bgColor: tagAllBgColor,
                                     borderColor: tagAllBorderColor,
                                     selected: selectedTag == nil) {
-                    Label("全部", systemImage: "line.3.horizontal.decrease.circle")
+                    Label(AppStrings.Group.all,
+                          systemImage: "line.3.horizontal.decrease.circle")
                         .font(.caption.weight(.medium))
                 } onClick: {
                     withAnimation(.easeInOut(duration: 0.2)) { selectedTag = nil }
@@ -431,16 +417,16 @@ struct MainNoteListView: View {
                 .foregroundStyle(.primary.opacity(0.85))
                 .layoutPriority(1)
             Spacer(minLength: 4)
-            ToolbarHoverButton(title: "新建便签 ⌘N", systemImage: "plus", action: newNote)
+            ToolbarHoverButton(title: AppStrings.Toolbar.newNote, systemImage: "plus", action: newNote)
             Menu {
                 Button { ImportExportService.exportAll(store.notes) } label: {
-                    Label("导出全部便签", systemImage: "square.and.arrow.up")
+                    Label(AppStrings.App.exportAll, systemImage: "square.and.arrow.up")
                 }
                 Button { let _ = ImportExportService.importNotes(store: store) } label: {
-                    Label("导入便签 JSON", systemImage: "square.and.arrow.down")
+                    Label(AppStrings.App.importJSON, systemImage: "square.and.arrow.down")
                 }
             } label: {
-                ToolbarHoverButtonLabel(systemImage: "square.and.arrow.up.on.square", title: "导入/导出便签 JSON")
+                ToolbarHoverButtonLabel(systemImage: "square.and.arrow.up.on.square", title: AppStrings.Toolbar.importExport)
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
@@ -455,7 +441,7 @@ struct MainNoteListView: View {
                     .frame(width: 28, height: 28)
             }
             .buttonStyle(ToolbarHoverButtonStyle())
-            .help("复制历史 ⌘⇧V")
+            .help(AppStrings.Toolbar.clipboardHistory)
             .popover(isPresented: $showHistory, arrowEdge: .bottom) {
                 ClipboardHistoryPopover(items: $historyItems,
                                         onRecopy: { item in
@@ -470,17 +456,17 @@ struct MainNoteListView: View {
             }
 
             Menu {
-                Picker("排序", selection: Binding(
+                Picker(AppStrings.Toolbar.sort, selection: Binding(
                     get: { store.sortOrder },
                     set: { newValue in withAnimation(.easeInOut(duration: 0.3)) { store.setSortOrder(newValue) } }
                 )) {
                     ForEach(NoteStore.SortOrder.allCases) { order in
-                        Label(order.rawValue, systemImage: order.symbol).tag(order)
+                        Label(order.localizedName, systemImage: order.symbol).tag(order)
                     }
                 }
                 .labelsHidden()
             } label: {
-                ToolbarHoverButtonLabel(systemImage: "arrow.up.arrow.down", title: "排序：单击切换 / 长按展开")
+                ToolbarHoverButtonLabel(systemImage: "arrow.up.arrow.down", title: AppStrings.Toolbar.sort)
             } primaryAction: {
                 let cases = NoteStore.SortOrder.allCases
                 if let i = cases.firstIndex(of: store.sortOrder) {
@@ -495,27 +481,32 @@ struct MainNoteListView: View {
 
             // F6：分组视图开关（按标签分组）
             HoverableToolbarToggle(isOn: $isGrouped,
-                                   onTitle: "取消分组（扁平列表）",
-                                   offTitle: "按标签分组视图",
+                                   onTitle: AppStrings.Toolbar.ungroup,
+                                   offTitle: AppStrings.Toolbar.groupByTag,
                                    onImage: "list.bullet.indent",
                                    offImage: "folder")
 
             HoverableToolbarToggle(isOn: $isCompact,
-                                   onTitle: "展开显示",
-                                   offTitle: "紧凑显示",
+                                   onTitle: AppStrings.Toolbar.expanded,
+                                   offTitle: AppStrings.Toolbar.compact,
                                    onImage: "rectangle.compress.vertical",
                                    offImage: "rectangle.expand.vertical")
 
             HoverableToolbarToggle(isOn: $isPinned,
-                                   onTitle: "取消置顶",
-                                   offTitle: "窗口置顶",
+                                   onTitle: AppStrings.Toolbar.unpinWindow,
+                                   offTitle: AppStrings.Toolbar.pinWindow,
                                    onImage: "pin.fill",
                                    offImage: "pin",
                                    onChange: onTogglePin)
 
-            ToolbarHoverButton(title: "隐藏为悬浮条 ⌥⌘N",
+            ToolbarHoverButton(title: AppStrings.Toolbar.hideMini,
                                systemImage: "sidebar.right",
                                action: onHide)
+
+            // 齿轮 → 打开设置窗口
+            ToolbarHoverButton(title: AppStrings.Settings.title, systemImage: "gearshape") {
+                AppDelegate.shared?.showSettings()
+            }
         }
         .padding(.horizontal, 12)
         .padding(.top, 10)
@@ -525,25 +516,17 @@ struct MainNoteListView: View {
     // MARK: - 空状态（U6 插画）
 
     private var emptyState: some View {
-        VStack(spacing: 14) {
-            ZStack(alignment: .topTrailing) {
-                Image(systemName: "square.stack.3d.up")
-                    .font(.system(size: 64))
-                    .foregroundStyle(.tertiary)
-                Image(systemName: "note.text.badge.plus")
-                    .font(.system(size: 26, weight: .semibold))
-                    .foregroundStyle(Color(nsColor: NSColor.controlAccentColor), .white)
-                    .offset(x: 6, y: -6)
-            }
-            .padding(.bottom, 4)
+        VStack(spacing: 18) {
+            // U6 空状态插画：层叠便签纸 + 加号徽章 + 浮动色卡
+            emptyStateIllustration
 
-            VStack(spacing: 4) {
-                Text(searchText.isEmpty ? "还没有便签" : "无匹配结果")
-                    .font(.headline)
+            VStack(spacing: 6) {
+                Text(searchText.isEmpty ? AppStrings.Empty.noNotes : AppStrings.Empty.noMatch)
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(.secondary)
                 if searchText.isEmpty {
-                    Text("点击下方按钮创建你的第一条便签，或使用 ⌥⌘N 随时呼出。")
-                        .font(.caption)
+                    Text(AppStrings.Empty.createHint)
+                        .font(.system(size: 11))
                         .foregroundStyle(.tertiary)
                         .multilineTextAlignment(.center)
                 }
@@ -551,7 +534,7 @@ struct MainNoteListView: View {
 
             if searchText.isEmpty {
                 Button { newNote() } label: {
-                    Label("新建便签", systemImage: "plus.circle.fill")
+                    Label(AppStrings.Toolbar.newNote, systemImage: "plus.circle.fill")
                         .font(.system(size: 13, weight: .semibold))
                 }
                 .buttonStyle(.borderedProminent)
@@ -563,18 +546,102 @@ struct MainNoteListView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    /// U6 SF Symbol 组合插画：层叠便签纸 + 加号徽章 + 浮动小色卡
+    private var emptyStateIllustration: some View {
+        ZStack {
+            // 背景光晕
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.accentColor.opacity(0.12), Color.clear],
+                        center: .center,
+                        startRadius: 8,
+                        endRadius: 80
+                    )
+                )
+                .frame(width: 160, height: 160)
+
+            // 层叠便签纸（3 层，从后到前错位）
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.accentColor.opacity(0.08))
+                .frame(width: 72, height: 82)
+                .rotationEffect(.degrees(-10))
+                .offset(x: -28, y: 10)
+
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.accentColor.opacity(0.14))
+                .frame(width: 72, height: 82)
+                .rotationEffect(.degrees(6))
+                .offset(x: 24, y: 14)
+
+            // 便签纸主体
+            VStack(spacing: 4) {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color.accentColor.opacity(0.3))
+                    .frame(width: 36, height: 4)
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color.primary.opacity(0.12))
+                    .frame(width: 48, height: 3)
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color.primary.opacity(0.10))
+                    .frame(width: 40, height: 3)
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color.primary.opacity(0.08))
+                    .frame(width: 44, height: 3)
+            }
+            .frame(width: 64, height: 76)
+            .padding(8)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color(nsColor: .controlBackgroundColor))
+                    .shadow(color: .black.opacity(0.1), radius: 6, y: 3)
+            )
+
+            // 加号徽章
+            ZStack {
+                Circle()
+                    .fill(Color.accentColor)
+                    .frame(width: 30, height: 30)
+                    .shadow(color: Color.accentColor.opacity(0.4), radius: 4, y: 2)
+                Image(systemName: "plus")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+            .offset(x: 32, y: -32)
+
+            // 浮动装饰色卡
+            Circle()
+                .fill(Color.yellow.opacity(0.6))
+                .frame(width: 10, height: 10)
+                .offset(x: -52, y: -28)
+            Circle()
+                .fill(Color.green.opacity(0.5))
+                .frame(width: 7, height: 7)
+                .offset(x: 50, y: 40)
+            Circle()
+                .fill(Color.purple.opacity(0.4))
+                .frame(width: 8, height: 8)
+                .offset(x: -45, y: 45)
+        }
+        .frame(width: 140, height: 140)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if searchText.isEmpty { newNote() }
+        }
+    }
+
     // MARK: - 便签操作（带动画 A2）
 
     private func newNote() {
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-            editingNote = store.add()
-            selection = editingNote.id
-        }
+        // 新建便签不预插入 store，保存时才真正插入，避免取消后残留空条目
+        editingNote = Note(title: "", content: "")
+        isNewNote = true
         isEditing = true
     }
 
     private func edit(_ note: Note) {
         editingNote = note
+        isNewNote = false
         isEditing = true
     }
 }
@@ -607,30 +674,61 @@ private struct WindowShortcutBridge: NSViewRepresentable {
     let onCopyContent: () -> Void
     let onDelete: () -> Void
     let onToggleHistory: () -> Void
+    let onNewNote: () -> Void
+    let hasSearchText: () -> Bool
 
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
         DispatchQueue.main.async {
             let monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
                 guard let window = view.window, window.isKeyWindow else { return event }
-                let cmd = event.modifierFlags.contains(.command)
-                let shift = event.modifierFlags.contains(.shift)
-                // ⌘↵：复制选中便签内容
-                if cmd, event.keyCode == 36 /* Return */ { onCopyContent(); return nil }
-                // Delete / Backspace：删除选中便签（无 cmd 也生效）
-                switch event.keyCode {
-                case 51 /* Backspace */, 117 /* Forward Delete (Del) */:
-                    onDelete(); return nil
-                default: break
+
+                // 检查当前焦点是否在文本输入控件中
+                let firstResponder = window.firstResponder
+                let isEditingText: Bool
+                if let responder = firstResponder {
+                    // NSTextView（SwiftUI TextField/TextEditor 内部使用）
+                    // 也检查 isEditable 属性
+                    if let tv = responder as? NSTextView {
+                        isEditingText = tv.isEditable
+                    } else if responder is NSTextField {
+                        isEditingText = true
+                    } else {
+                        isEditingText = false
+                    }
+                } else {
+                    isEditingText = false
                 }
-                // F4：⌘⇧V 打开复制历史
-                if cmd && shift {
-                    if event.charactersIgnoringModifiers == "v" { onToggleHistory(); return nil }
+
+                let config = HotkeyConfigStore.shared
+                let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
+
+                // 文本编辑中：直接放行所有事件（让输入框正常处理退格等按键）
+                if isEditingText { return event }
+
+                // 搜索框有文字时：⌫（deleteNote）放行，让搜索框删除文字
+                // （搜索无结果时 TextField 可能失去焦点，isEditingText 为 false）
+                if hasSearchText() && event.keyCode == 51 {
+                    return event
                 }
-                guard cmd else { return event }
-                let ch = event.charactersIgnoringModifiers
-                if ch == "e" { onEdit(); return nil }
-                if ch == "d" { onDuplicate(); return nil }
+
+                // 逐个 action 匹配
+                for action in HotkeyAction.allCases where !action.isGlobal {
+                    let binding = config.binding(for: action)
+                    if event.keyCode == UInt16(binding.keyCode)
+                        && modifiers == binding.modifiers.intersection([.command, .option, .control, .shift]) {
+                        switch action {
+                        case .edit:        onEdit()
+                        case .duplicate:    onDuplicate()
+                        case .copyContent:  onCopyContent()
+                        case .deleteNote:    onDelete()
+                        case .history:      onToggleHistory()
+                        case .newNote:      onNewNote()
+                        default: break
+                        }
+                        return nil
+                    }
+                }
                 return event
             }
             objc_setAssociatedObject(view, &monitorKey, monitor, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)

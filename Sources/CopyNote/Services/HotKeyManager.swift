@@ -2,6 +2,7 @@ import AppKit
 import Carbon.HIToolbox
 
 /// 全局快捷键管理器：注册并处理系统级热键（不依赖应用激活状态）。
+/// 支持自定义快捷键绑定：通过 `HotkeyConfigStore` 读取 `.toggleWindow` 绑定。
 final class HotKeyManager {
     static let shared = HotKeyManager()
 
@@ -9,18 +10,23 @@ final class HotKeyManager {
     private var eventHandler: EventHandlerRef?
     private var onTrigger: (() -> Void)?
 
-    private let hotKeyID = EventHotKeyID(signature: OSType(0x434E3031), id: 1) // "CN01"
+    private var hotKeyID = EventHotKeyID(signature: OSType(0x434E3031), id: 1) // "CN01"
 
     private init() {}
 
     deinit { unregister() }
 
-    /// 注册 ⌥⌘N 全局热键，触发时调用 `handler`。
+    /// 注册全局热键：从 HotkeyConfigStore 读取 `.toggleWindow` 绑定。
     /// 重复注册会先注销旧的。
     @discardableResult
     func registerToggleKey(handler: @escaping () -> Void) -> Bool {
         unregister()
         self.onTrigger = handler
+
+        // 从配置读取绑定
+        let binding = MainActor.assumeIsolated {
+            HotkeyConfigStore.shared.binding(for: .toggleWindow)
+        }
 
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard),
                                  eventKind: UInt32(kEventHotKeyPressed))
@@ -50,8 +56,8 @@ final class HotKeyManager {
         guard installStatus == noErr, let handlerRef else { return false }
         self.eventHandler = handlerRef
 
-        let modifiers = UInt32(optionKey) | UInt32(cmdKey)
-        let keyCode = UInt32(kVK_ANSI_N)
+        let modifiers = binding.carbonModifiers
+        let keyCode = binding.keyCode
         var ref: EventHotKeyRef?
         let regStatus = RegisterEventHotKey(keyCode, modifiers, hotKeyID,
                                             GetApplicationEventTarget(), 0, &ref)

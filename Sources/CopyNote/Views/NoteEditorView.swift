@@ -9,6 +9,8 @@ struct NoteEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var newTagText = ""
     @State private var showPreview = false  // F1：编辑 vs 预览
+    /// 是否为新建便签（取消时如果为空则删除）
+    var isNewNote: Bool = false
 
     private var theme: NoteColorTheme { NoteColorTheme(fromHex: note.colorHex) }
     private var wordCount: Int { note.content.isEmpty ? 0 : note.content.split(whereSeparator: \.isWhitespace).count }
@@ -263,13 +265,17 @@ struct NoteEditorView: View {
 
     private var footer: some View {
         HStack {
-            Button(role: .cancel) { dismiss() } label: {
-                Text("取消")
+            Button(role: .cancel) {
+                cancelEdit()
+            } label: {
+                Text(AppStrings.Editor.cancel)
             }
             .keyboardShortcut(.cancelAction)
             Spacer()
-            Button { dismiss() } label: {
-                Text("保存")
+            Button {
+                saveAndDismiss()
+            } label: {
+                Text(AppStrings.Editor.done)
                     .font(.system(size: 12, weight: .semibold))
             }
             .buttonStyle(.borderedProminent)
@@ -302,9 +308,29 @@ struct NoteEditorView: View {
         withAnimation(.easeInOut(duration: 0.15)) { note.tags.append(text) }
         newTagText = ""
     }
-}
 
-// MARK: - 标签 + 删除按钮（U3 胶囊统一）
+    // MARK: - 保存 / 取消
+
+    /// 取消：新建 → 直接丢弃（未插入 store）；编辑 → 无额外操作（onChange 已实时回写）
+    private func cancelEdit() {
+        dismiss()
+    }
+
+    /// 保存：空便签不保存（新建则丢弃，编辑则删除）；非空则插入或更新
+    private func saveAndDismiss() {
+        let trimmedTitle = note.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedContent = note.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedTitle.isEmpty && trimmedContent.isEmpty {
+            // 空便签：新建直接丢弃；编辑则删除原有（避免空白条目）
+            if !isNewNote { store.delete(note) }
+        } else if isNewNote {
+            store.add(note)
+        } else {
+            store.update(note)
+        }
+        dismiss()
+    }
+}
 
 private struct TagWithRemove: View {
     let tag: String

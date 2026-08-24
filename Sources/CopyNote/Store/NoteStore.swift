@@ -30,6 +30,7 @@ final class NoteStore {
 
     private let fileURL: URL
     private let prefsURL: URL
+    private let backupDir: URL
 
     init() {
         let fm = FileManager.default
@@ -39,6 +40,8 @@ final class NoteStore {
         try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
         self.fileURL = dir.appendingPathComponent("notes.json")
         self.prefsURL = dir.appendingPathComponent("prefs.json")
+        self.backupDir = dir.appendingPathComponent("backups", isDirectory: true)
+        try? fm.createDirectory(at: self.backupDir, withIntermediateDirectories: true)
         loadPrefs()
         load()
         sortInPlace()
@@ -75,6 +78,74 @@ final class NoteStore {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         guard let data = try? encoder.encode(notes) else { return }
         try? data.write(to: fileURL, options: .atomic)
+        performDailyBackup()
+    }
+
+    // MARK: - F8 Auto Backup
+
+    /// 每日自动备份：如果今天还没备份过，复制 notes.json → backups/notes-YYYYMMDD.json
+    /// 保留最近 7 份备份，更早的自动删除
+    private func performDailyBackup() {
+        let fm = FileManager.default
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd"
+        let today = formatter.string(from: Date())
+        let backupURL = backupDir.appendingPathComponent("notes-\(today).json")
+
+        // 今天已备份 → 跳过
+        guard !fm.fileExists(atPath: backupURL.path) else { return }
+
+        // 复制当前 notes.json 到备份
+        try? fm.copyItem(at: fileURL, to: backupURL)
+
+        // 清理超过 7 天的旧备份
+        if let files = try? fm.contentsOfDirectory(at: backupDir,
+                                                    includingPropertiesForKeys: [.contentModificationDateKey],
+                                                    options: [.skipsHiddenFiles]) {
+            let cutoff = Date().addingTimeInterval(-7 * 24 * 3600)
+            for file in files where file.pathExtension == "json" {
+                if let mdate = try? file.resourceValues(forKeys: [.contentModificationDateKey])
+                    .contentModificationDate,
+                    mdate < cutoff {
+                    try? fm.removeItem(at: file)
+                }
+            }
+        }
+    }
+
+    /// 公开备份目录路径（供设置面板使用）
+    var backupDirectoryURL: URL { backupDir }
+
+    /// 备份记录：返回 backups/ 目录下的所有 json 文件（按日期降序）
+    func backupFiles() -> [(url: URL, date: Date, size: Int64)] {
+        let fm = FileManager.default
+        guard let files = try? fm.contentsOfDirectory(at: backupDir,
+                                                      includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey],
+                                                      options: [.skipsHiddenFiles]) else {
+            return []
+        }
+        var result: [(URL, Date, Int64)] = []
+        for file in files where file.pathExtension == "json" {
+            let rv = try? file.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey])
+            let date = rv?.contentModificationDate ?? .distantPast
+            let size = rv?.fileSize ?? 0
+            result.append((file, date, Int64(size)))
+        }
+        result.sort { $0.1 > $1.1 }
+        return result
+    }
+
+    /// 立即手动备份一份（供设置面板「立即备份」按钮使用）
+    @discardableResult
+    func createBackupNow() -> URL? {
+        let fm = FileManager.default
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        let stamp = formatter.string(from: Date())
+        let backupURL = backupDir.appendingPathComponent("notes-manual-\(stamp).json")
+        guard fm.fileExists(atPath: fileURL.path) else { return nil }
+        try? fm.copyItem(at: fileURL, to: backupURL)
+        return backupURL
     }
 
     // MARK: - CRUD
@@ -92,6 +163,13 @@ final class NoteStore {
         var n = note
         n.updatedAt = .now
         notes[i] = n
+        sortInPlace()
+        save()
+    }
+
+    /// 用备份数据替换当前所有便签（供设置面板「恢复备份」使用）
+    func replaceNotes(_ newNotes: [Note]) {
+        notes = newNotes
         sortInPlace()
         save()
     }

@@ -11,23 +11,27 @@ struct CopyNoteApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            Button("显示主窗口") { appDelegate.coordinator.expand() }
-            Button("隐藏为悬浮条") { appDelegate.coordinator.hideToMini() }
+            Button(AppStrings.App.showMainWindow) { appDelegate.coordinator.expand() }
+            Button(AppStrings.App.hideToMiniBar) { appDelegate.coordinator.hideToMini() }
             Divider()
-            Button("导入便签 JSON") {
+            Button(AppStrings.App.hotkeySettings) {
+                AppDelegate.shared?.showSettings()
+            }
+            Divider()
+            Button(AppStrings.App.importJSON) {
                 let _ = ImportExportService.importNotes(store: appDelegate.store)
             }
-            Button("导出全部便签") {
+            Button(AppStrings.App.exportAll) {
                 ImportExportService.exportAll(appDelegate.store.notes)
             }
             Divider()
-            Button("退出 CopyNote", role: .destructive) {
+            Button(AppStrings.App.quit, role: .destructive) {
                 NSApp.terminate(nil)
             }
         } label: {
             // 自定义 StatusBar 图标（纯代码绘制，18×18 模板图）
             Label {
-                Text("CopyNote")
+                Text(AppStrings.App.name)
             } icon: {
                 statusBarImage
             }
