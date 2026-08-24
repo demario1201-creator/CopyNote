@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 /// 迷你面板的内容视图：托管 SwiftUI 内容（纯展示），拦截鼠标事件，
-/// 处理悬停（peek）、拖动（performDrag）、点击（展开）。
+/// 处理悬停（peek）、拖动（performDrag）、点击（侧边展开，peek 便签区复制）。
 final class MiniContainerView: NSView {
     weak var coordinator: WindowCoordinator?
 
@@ -24,8 +24,14 @@ final class MiniContainerView: NSView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    /// 拦截所有命中测试：迷你条无内部控件，所有鼠标事件交给本视图处理（拖动/点击）。
-    override func hitTest(_ point: NSPoint) -> NSView? { self }
+    /// 让 SwiftUI 内容（NSHostingView）内部手势/onTapGesture 有机会处理：
+    /// 点击落在哪块由 hostingView 决定；我们仍在 mouseDown 阶段按区域分发拖动逻辑。
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        let sub = super.hitTest(point)
+        // 只要命中在我们内部（包括 hostingView 及其子视图）就把事件留在本视图层级
+        // 由 mouseDown 判断是否 performDrag 或交给 SwiftUI。
+        return sub
+    }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
@@ -44,6 +50,26 @@ final class MiniContainerView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         guard let window = window else { return }
+        let w = bounds.width
+        let localPoint = convert(event.locationInWindow, from: nil)
+        // 判断点击热区：
+        // - rest 态（宽<100）→ 统一非便签区：拖动 / 未移动则 expand
+        // - peek 态（宽≥100）：
+        //   · x < 57.5 → 左栏 56 + 分隔线 → 侧边非便签区：拖动 / 未移动则 expand
+        //   · x ≥ 57.5 → 右栏便签预览区：不拖动，交给 SwiftUI onTap 执行复制
+        let isSidebar: Bool
+        if w < 100 {
+            isSidebar = true
+        } else {
+            isSidebar = localPoint.x < 57.5
+        }
+        guard isSidebar else {
+            // 便签预览区：不 performDrag（否则会阻塞 onTapGesture），
+            // 直接把事件向上传递（nextResponder → hostingView）让 SwiftUI onTap 生效。
+            super.mouseDown(with: event)
+            return
+        }
+        // 侧边区域：保留原有 performDrag + 移动判断 expand/settle 逻辑
         let origin = window.frame.origin
         coordinator?.beginDrag()
         window.performDrag(with: event)
@@ -58,12 +84,12 @@ final class MiniContainerView: NSView {
     }
 }
 
-/// 迷你面板的窗口代理：窗口移动时兜底吸附（拖动/动画期间跳过）。
+/// 迷你面板的窗口代理：窗口移动时兜底吸附（拖动/动画/对齐canonical 期间跳过）。
 final class MiniPanelDelegate: NSObject, NSWindowDelegate {
     weak var coordinator: WindowCoordinator?
 
     func windowDidMove(_ notification: Notification) {
-        guard let c = coordinator, !c.isDraggingMini, !c.isAnimatingMini, c.isMini else { return }
+        guard let c = coordinator, !c.isDraggingMini, !c.isAnimatingMini, !c.isAligningCanonical, c.isMini else { return }
         c.snapMiniToEdge(animate: true)
     }
 }
