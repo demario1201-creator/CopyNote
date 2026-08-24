@@ -223,8 +223,7 @@ struct NoteEditorView: View {
                                 .font(.system(size: 9.5, weight: .medium))
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Color.accentColor.opacity(0.08), in: Capsule())
-                                .overlay(Capsule().stroke(Color.accentColor.opacity(0.2), lineWidth: 0.6))
+                                .tagCapsuleStyle(.secondary)
                         }
                         .buttonStyle(.plain)
                     }
@@ -350,14 +349,7 @@ private struct TagWithRemove: View {
         }
         .padding(.horizontal, 7)
         .padding(.vertical, 2.5)
-        .background(
-            Capsule().fill(
-                Color.accentColor.opacity(hovered ? 0.16 : 0.12)
-            )
-        )
-        .overlay(
-            Capsule().stroke(Color.accentColor.opacity(hovered ? 0.32 : 0.24), lineWidth: 0.7)
-        )
+        .tagCapsuleStyle(hovered ? .selected : .normal)
         .scaleEffect(hovered ? 1.03 : 1)
         .onHover { h in withAnimation(.easeInOut(duration: 0.12)) { hovered = h } }
         .help("移除标签 \(tag)")

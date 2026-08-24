@@ -119,8 +119,7 @@ struct NoteRowView: View {
                                         .font(.system(size: 8.5, weight: .medium))
                                         .padding(.horizontal, 5)
                                         .padding(.vertical, 1.5)
-                                        .background(Color.accentColor.opacity(0.12), in: Capsule())
-                                        .overlay(Capsule().stroke(Color.accentColor.opacity(0.22), lineWidth: 0.5))
+                                        .tagCapsuleStyle(.normal)
                                 }
                                 if note.tags.count > 3 {
                                     Text("+\(note.tags.count - 3)")
@@ -220,7 +219,7 @@ struct NoteRowView: View {
                     .font(.system(size: 8.5, weight: .medium))
                     .padding(.horizontal, 4)
                     .padding(.vertical, 1)
-                    .background(Color.accentColor.opacity(0.12), in: Capsule())
+                    .tagCapsuleStyle(.normal)
                 if note.tags.count > 1 {
                     Text("+\(note.tags.count - 1)")
                         .font(.system(size: 8.5))

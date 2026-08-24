@@ -85,11 +85,6 @@ struct MainNoteListView: View {
             ? Color(nsColor: NSColor.controlAccentColor)
             : Color(nsColor: NSColor.systemGray)
     }
-    private var tagAllBorderColor: Color {
-        selectedTag == nil
-            ? Color(nsColor: NSColor.controlAccentColor)
-            : Color(nsColor: NSColor.systemGray)
-    }
 
     // MARK: - Root
 
@@ -382,7 +377,6 @@ struct MainNoteListView: View {
         return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
                 HoverableTagCapsule(bgColor: tagAllBgColor,
-                                    borderColor: tagAllBorderColor,
                                     selected: selectedTag == nil) {
                     Label(AppStrings.Group.all,
                           systemImage: "line.3.horizontal.decrease.circle")
@@ -392,7 +386,6 @@ struct MainNoteListView: View {
                 }
                 ForEach(store.allTags, id: \.self) { tag in
                     HoverableTagCapsule(bgColor: accent,
-                                        borderColor: accent,
                                         selected: selectedTag == tag) {
                         Text("#\(tag)")
                             .font(.caption.weight(.medium))
@@ -829,7 +822,6 @@ private struct HoverableToolbarToggle: View {
 
 private struct HoverableTagCapsule<Content: View>: View {
     let bgColor: Color
-    let borderColor: Color
     let selected: Bool
     @ViewBuilder let content: () -> Content
     let onClick: () -> Void
@@ -840,16 +832,7 @@ private struct HoverableTagCapsule<Content: View>: View {
             content()
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
-                .background(
-                    Capsule().fill(
-                        selected ? bgColor.opacity(0.25) : (hovered ? bgColor.opacity(0.14) : bgColor.opacity(0.08))
-                    )
-                )
-                .overlay(
-                    Capsule()
-                        .stroke((selected ? borderColor : borderColor.opacity(0.6)).opacity(hovered ? 0.4 : 0.3),
-                                lineWidth: 1)
-                )
+                .tagCapsuleStyle(selected ? .selected : .normal, accent: bgColor)
                 .scaleEffect(hovered ? 1.05 : 1)
         }
         .buttonStyle(.plain)

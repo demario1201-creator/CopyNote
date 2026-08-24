@@ -1,58 +1,79 @@
 <div align="center">
 
-<img src="docs/copynote-icon.png" width="160" height="160" alt="CopyNote" />
+<img src="docs/copynote-icon.png" width="140" height="140" alt="CopyNote logo" />
 
 # CopyNote
 
-**轻量级 macOS 便签管理工具 · 快速复制，即取即用**
+### 轻若鸿毛的 macOS 便签 · 单击即复制，即取即用
 
-原生 SwiftUI + AppKit 构建，常驻菜单栏，单击即复制
+原生 SwiftUI + AppKit 打造，常驻菜单栏，把「复制」这件事做到一键之快。
 
 [![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-blue?logo=apple&logoColor=white)](https://github.com/demario1201-creator/CopyNote)
 [![Swift](https://img.shields.io/badge/Swift-5.9%2B-orange?logo=swift&logoColor=white)](https://swift.org)
-[![SwiftUI](https://img.shields.io/badge/SwiftUI-✓-blue)](https://developer.apple.com/xcode/swiftui/)
-[![License](https://img.shields.io/github/license/demario1201-creator/CopyNote?color=green)](LICENSE)
+[![SwiftUI](https://img.shields.io/badge/SwiftUI-native-blue)](https://developer.apple.com/xcode/swiftui/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/demario1201-creator/CopyNote?color=red)](https://github.com/demario1201-creator/CopyNote/releases)
+[![零依赖](https://img.shields.io/badge/dependencies-none-brightgreen)]()
 
-[功能特性](#-功能特性) · [安装](#-安装) · [使用指南](#-使用指南) · [技术架构](#-技术架构) · [开发](#-开发)
+**快速复制** · **迷你悬浮条** · **本地隐私** · **无云依赖**
+
+[功能亮点](#-为什么选择-copynote) · [安装](#-安装) · [快捷键](#-快捷键) · [使用指南](#-使用指南) · [技术栈](#-技术栈) · [License](#-license)
 
 </div>
 
 ---
 
-## ✨ 功能特性
+## ✨ 为什么选择 CopyNote
 
-### 便签管理
+一张会「主动跑到你面前」的便签 —— 复制内容，从未如此顺手。
 
-| 功能 | 说明 |
+### ⚡ 极致效率
+
+| | |
 | --- | --- |
-| 📝 **便签 CRUD** | 创建、编辑、删除便签，支持标题 + 内容 + 标签 |
-| 🔍 **智能搜索** | 多关键词搜索（空格分隔，AND 逻辑），跨标题、内容、标签匹配 |
-| 🏷️ **标签系统** | 为便签添加标签，按标签快速筛选，标签按使用频率排序 |
-| ↕️ **多种排序** | 6 种排序方式：最近更新 / 最早更新 / 最近创建 / 最早创建 / 标题 A→Z / Z→A |
-| 📦 **导入导出** | 单条或批量便签 JSON 导入导出，UUID 冲突自动跳过 |
-| 📋 **一键复制** | 单击便签即复制内容到剪切板，带复制成功动画反馈 |
+| 🖱️ **单击即复制** | 点击任意便签，内容立刻进入剪贴板，带绿色 flash 动画反馈 |
+| 🫧 **迷你悬浮条** | 窗口收成屏幕边缘的一条彩色浮标，鼠标滑过即可预览 + 直接点选复制，不展开窗口 |
+| ⌨️ **全局热键** | `⌥ ⌘ N` 任何应用中一键唤出 / 收起，键盘都不用离开 |
+| 🎛️ **快捷键全自定义** | 7 个动作随心改键，自动检测快捷键冲突 |
 
-### 窗口与交互
+### 🧠 会思考的便签
 
-| 功能 | 说明 |
+| | |
 | --- | --- |
-| 📌 **窗口置顶** | 一键置顶于所有窗口之上，随时查阅 |
-| 🫧 **悬浮条模式** | 隐藏为屏幕边缘的迷你悬浮条，鼠标悬停窥视内容 |
-| 🧲 **边缘吸附** | 拖动悬浮条靠近屏幕边缘自动吸附，支持左右两侧 |
-| ⌨️ **全局快捷键** | `⌥ ⌘ N` 在任何应用中快速切换主窗口与悬浮条 |
-| 📐 **折叠模式** | 紧凑单行显示便签标题，鼠标悬停显示操作按钮 |
-| 🔔 **菜单栏入口** | 自定义 StatusBar 图标，快捷访问主窗口、导入导出 |
+| 📝 **Markdown 渲染** | 标题 / 粗体 / 斜体 / 链接 / 行内代码 开箱即用，编辑器可实时预览 |
+| 🏷️ **多标签 + 分组** | 无限标签、按使用频率排序、一键分组视图、标签胶囊统一视觉 |
+| 🔍 **智能搜索** | 多关键词空格分隔（AND 逻辑），跨标题 / 内容 / 标签秒级命中 |
+| ⭐ **收藏 & 锁定** | 星标便签永远置顶；锁定便签删除前二次确认，防止误删 |
+| 📋 **复制历史** | 自动记录最近 10 条，随手回捞，`⌘ ⇧ V` 一键呼出 |
+
+### 🛡️ 隐私与安心
+
+| | |
+| --- | --- |
+| 🔒 **纯本地存储** | 数据只存于本机 JSON，零上传、零账号、零追踪 |
+| 💾 **自动备份** | 每日自动快照 + 7 天保留，随时手动备份 / 一键恢复 |
+| 🚫 **零依赖** | 第三方便签常拖家带口的 Electron，这里只有 SwiftUI + AppKit 本尊 |
+| 🌐 **双语界面** | 简体中文 / English 即时切换 |
+
+### 🎨 赏心悦目
+
+| | |
+| --- | --- |
+| 📌 **窗口置顶** | 一键悬浮于所有窗口之上，参考常驻眼前 |
+| 🧲 **边缘吸附** | 拖到屏幕边缘自动吸附，带弹性回弹动画 |
+| 🃏 **窗口变形过渡** | 主窗口 ↔ 悬浮条丝滑 morph，切换不再生硬 |
+| 🎞️ **细腻动效** | 卡片 hover、折叠过渡、复制闪光，处处顺滑 |
+
+---
 
 ## 📦 安装
 
 ### 方式一：下载 Release（推荐）
 
-1. 前往 [Releases 页面](https://github.com/demario1201-creator/CopyNote/releases) 下载最新版 `CopyNote.zip`
+1. 前往 [Releases 页面](https://github.com/demario1201-creator/CopyNote/releases) 下载最新 `CopyNote.zip`
 2. 解压后将 `CopyNote.app` 拖入「应用程序」文件夹
 3. 首次运行如被 Gatekeeper 拦截：
-   - 打开「系统设置 → 隐私与安全性」
-   - 点击「仍要打开」
+   - 打开「系统设置 → 隐私与安全性」→ 点击「仍要打开」
 
 ### 方式二：源码编译
 
@@ -63,129 +84,71 @@ swift build --disable-sandbox
 bash script/build_and_run.sh run
 ```
 
-> **系统要求**：macOS 14.0+ (Sonoma) · Apple Silicon (arm64)
+> **系统要求**：macOS 14.0+ (Sonoma) · Apple Silicon
+
+---
+
+## ⌨️ 快捷键
+
+> 所有快捷键均可在「齿轮设置 → 快捷键」中自定义，冲突自动提示。
+
+| 快捷键 | 功能 | 作用域 |
+| --- | --- | --- |
+| `⌥ ⌘ N` | 切换主窗口 / 悬浮条 | 全局 |
+| `⌘ N` | 新建便签 | 应用内 |
+| `⌘ E` | 编辑选中便签 | 应用内 |
+| `⌘ D` | 复制一份副本 | 应用内 |
+| `⌘ ↵` | 复制选中便签内容 | 应用内 |
+| `⌘ ⇧ V` | 打开复制历史 | 应用内 |
+| `⌫` | 删除选中便签 | 应用内 |
+
+---
 
 ## 📖 使用指南
 
-### 快捷键
-
-| 快捷键 | 功能 |
+| 我想… | 怎么做 |
 | --- | --- |
-| `⌥ ⌘ N` | 全局切换主窗口 / 悬浮条 |
+| **新建便签** | 工具栏 ➕ 或快捷键 `⌘ N` |
+| **复制内容** | 单击便签行（或迷你悬浮条点选），内容即入剪贴板 |
+| **编辑便签** | 悬停便签 → ✏️，或右键「编辑」，或 `⌘ E` |
+| **删除便签** | 悬停便签 → 🗑️，或 `⌫`（锁定便签会二次确认） |
+| **收藏 / 锁定** | 便签上的 ⭐ / 🔒 图标，或右键菜单 |
+| **搜索便签** | 顶部搜索框（空格分隔多关键词） |
+| **标签筛选 / 分组** | 点击搜索栏下方标签胶囊，或工具栏文件夹图标切换分组 |
+| **切换排序** | 工具栏 ↕️ 图标（最近更新 / 标题 A→Z 等 6 种） |
+| **置顶窗口** | 工具栏 📌 图标 |
+| **收起悬浮条** | 工具栏 ◫ 图标，吸附到屏幕边缘 |
+| **导入 / 导出** | 工具栏「导入导出」，JSON 格式，支持单条与批量 |
+| **复制历史** | 工具栏 🕐 图标，或 `⌘ ⇧ V` |
+| **打开设置** | 工具栏 ⚙️ 齿轮（快捷键 / 语言 / 自动备份 / 关于） |
 
-### 便签操作
+---
 
-| 操作 | 方式 |
+## 🛠️ 技术栈
+
+| 层面 | 选型 |
 | --- | --- |
-| **新建便签** | 工具栏点击 ➕ 图标 |
-| **复制内容** | 单击便签行（复制成功显示 ✅） |
-| **编辑便签** | 悬停便签 → 点击 ✏️ 图标，或右键「编辑」 |
-| **删除便签** | 悬停便签 → 点击 🗑️ 图标，或右键「删除」 |
-| **搜索便签** | 顶部搜索框输入关键词（空格分隔多词） |
-| **添加标签** | 编辑器中输入标签名 → 回车，或右键「添加标签」 |
-| **筛选标签** | 点击搜索栏下方的标签胶囊 |
-| **切换排序** | 工具栏点击 ↕️ 图标（单击循环 / 长按选择） |
-| **折叠/展开** | 工具栏点击 ▭ 图标切换紧凑显示 |
-| **导出便签** | 工具栏「导入导出」→ 导出全部 / 右键导出单条 |
-| **导入便签** | 工具栏「导入导出」→ 选择 JSON 文件 |
+| **UI** | SwiftUI（macOS 14+ 原生组件） |
+| **窗口控制** | AppKit（NSPanel 置顶、层级、动画） |
+| **状态管理** | Swift Observation（`@Observable`） |
+| **持久化** | 本地 JSON 文件 + 每日自动备份 |
+| **全局热键** | Carbon `RegisterEventHotKey` |
+| **构建** | Swift Package Manager（无 Xcode 工程依赖） |
 
-### 窗口操作
+> 更多技术细节与目录结构见项目源码。
 
-| 操作 | 方式 |
-| --- | --- |
-| **置顶窗口** | 工具栏点击 📌 图标 |
-| **隐藏为悬浮条** | 工具栏点击 ◫ 图标 |
-| **展开主窗口** | 单击悬浮条，或菜单栏「显示主窗口」 |
-| **窥视悬浮条** | 鼠标悬停在悬浮条上 |
-| **拖动悬浮条** | 拖动至屏幕边缘自动吸附 |
-
-## 🏗️ 技术架构
-
-```
-CopyNote/
-├── Sources/CopyNote/
-│   ├── App/                    # 应用入口与生命周期
-│   │   ├── CopyNoteApp.swift   # @main 入口，MenuBarExtra
-│   │   └── AppDelegate.swift   # 窗口协调、热键注册、屏幕变化
-│   ├── Models/
-│   │   └── Note.swift           # 便签数据模型（Identifiable, Codable）
-│   ├── Store/
-│   │   └── NoteStore.swift      # 状态管理：CRUD + 搜索 + 标签 + 排序 + 持久化
-│   ├── Services/
-│   │   ├── ClipboardService.swift    # 剪切板复制
-│   │   ├── EdgeSnapService.swift     # 边缘吸附几何计算
-│   │   ├── HotKeyManager.swift       # 全局热键（Carbon RegisterEventHotKey）
-│   │   ├── ImportExportService.swift  # JSON 导入导出（NSSavePanel/NSOpenPanel）
-│   │   └── AppIconFactory.swift      # 纯代码绘制 Dock & StatusBar 图标
-│   ├── Views/
-│   │   ├── MainNoteListView.swift    # 主窗口：工具栏 + 搜索 + 标签 + 列表
-│   │   ├── NoteRowView.swift         # 便签行（展开/折叠双模式）
-│   │   ├── NoteEditorView.swift      # 便签编辑器（标题 + 内容 + 标签）
-│   │   ├── SearchBar.swift           # 搜索输入框
-│   │   └── MiniBarView.swift         # 迷你悬浮条
-│   └── Window/
-│       ├── WindowCoordinator.swift   # 主窗口与迷你面板协调
-│       └── MiniPanelDelegate.swift   # 迷你面板事件处理
-├── script/
-│   ├── build_and_run.sh         # 构建打包运行脚本
-│   └── check_windows.swift      # 窗口调试工具
-└── Package.swift                # SwiftPM 包定义
-```
-
-### 技术选型
-
-| 层面 | 技术 | 说明 |
-| --- | --- | --- |
-| **UI 框架** | SwiftUI | 声明式界面，macOS 14+ 原生组件 |
-| **窗口控制** | AppKit (NSPanel/NSWindow) | 底层窗口层级、置顶、动画 |
-| **状态管理** | @Observable (Swift Observation) | 响应式数据流 |
-| **持久化** | JSON 文件 | 轻量本地存储，无需数据库 |
-| **全局热键** | Carbon RegisterEventHotKey | 系统级快捷键，无需辅助功能权限 |
-| **构建工具** | Swift Package Manager | 原生包管理，无 Xcode 工程依赖 |
-
-### 数据存储
-
-```
-~/Library/Application Support/CopyNote/
-├── notes.json    # 便签数据（标题、内容、标签、时间戳）
-└── prefs.json    # 偏好设置（排序方式）
-```
-
-## 🛠️ 开发
-
-### 构建与运行
-
-```bash
-# 编译
-swift build --disable-sandbox
-
-# 构建打包并运行
-bash script/build_and_run.sh run
-
-# 调试模式（lldb）
-bash script/build_and_run.sh --debug
-
-# 查看运行日志
-bash script/build_and_run.sh --logs
-```
-
-### 调试工具
-
-```bash
-# 检查应用窗口状态
-CN_PID=$(pgrep -x CopyNote) swift script/check_windows.swift
-```
+---
 
 ## 📄 License
 
-[MIT License](LICENSE) © 2026 [demario1201-creator](https://github.com/demario1201-creator)
+[MIT](LICENSE) © 2026 [demario1201-creator](https://github.com/demario1201-creator)
 
 ---
 
 <div align="center">
 
-如果这个项目对你有帮助，欢迎 ⭐ Star 支持
+如果 CopyNote 帮你省下了每一次「翻找 → 复制」的几秒钟，欢迎 ⭐ Star 支持 ⭐
 
-[报告问题](https://github.com/demario1201-creator/CopyNote/issues) · [功能建议](https://github.com/demario1201-creator/CopyNote/discussions) · [查看 Release](https://github.com/demario1201-creator/CopyNote/releases)
+[🐛 报告问题](https://github.com/demario1201-creator/CopyNote/issues) · [💡 功能建议](https://github.com/demario1201-creator/CopyNote/discussions) · [📦 查看 Release](https://github.com/demario1201-creator/CopyNote/releases)
 
 </div>

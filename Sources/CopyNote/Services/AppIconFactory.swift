@@ -1,34 +1,114 @@
 import AppKit
 import SwiftUI
 
-/// 生成并缓存 CopyNote 自定义图标（纯代码绘制，无需外部资源文件）。
+/// 统一加载 CopyNote 图标资源：
+/// - 首选：从 CopyNote.app/Contents/Resources 读取真实 PNG / ICNS 文件
+/// - 兜底：使用代码绘制旧版本图标（保证开发环境无 .app 时仍能显示）
 enum AppIconFactory {
 
-    // MARK: - AppIcon (Dock / Finder)
+    // MARK: - Resource Helpers
 
-    /// 生成 CopyNote App 图标（便签纸 + 剪贴板的叠层视觉，512×512）。
+    /// 显式查找 Resources 目录：
+    /// - 优先：CopyNote.app/Contents/Resources（由 build_and_run.sh 拷贝）
+    /// - 其次：源码项目 Resources/（SwiftPM 直接 swift run 时）
+    private static var resourcesURL: URL? {
+        let fm = FileManager.default
+        // 1) .app 场景：Bundle.main.executableURL = .../CopyNote.app/Contents/MacOS/CopyNote
+        //    往上两级 -> Contents -> Resources
+        if let exe = Bundle.main.executableURL {
+            var u = exe.deletingLastPathComponent() // MacOS
+            u = u.deletingLastPathComponent()       // Contents
+            let r = u.appendingPathComponent("Resources", isDirectory: true)
+            if fm.fileExists(atPath: r.path) { return r }
+        }
+        // 2) Bundle.main.resourceURL 可能已经是 .app/Contents/Resources 的情况
+        if let r = Bundle.main.resourceURL, fm.fileExists(atPath: r.path) {
+            // 检查是否有我们的资源
+            let probe = r.appendingPathComponent("app-64.png")
+            if fm.fileExists(atPath: probe.path) { return r }
+        }
+        // 3) 源码目录 fallback：从可执行文件找项目根（典型 SwiftPM .build 子目录）
+        if let exe = Bundle.main.executableURL {
+            var u = exe
+            // 最多向上爬 6 层找 Resources/
+            for _ in 0..<6 {
+                let r = u.appendingPathComponent("Resources", isDirectory: true)
+                let probe = r.appendingPathComponent("app-64.png")
+                if fm.fileExists(atPath: probe.path) { return r }
+                u = u.deletingLastPathComponent()
+            }
+        }
+        return nil
+    }
+
+    private final class BundleAnchor: NSObject {}
+
+    private static func loadPNG(_ name: String, extension ext: String = "png") -> NSImage? {
+        guard let base = resourcesURL else { return nil }
+        let url = base.appendingPathComponent("\(name).\(ext)")
+        return NSImage(contentsOf: url)
+    }
+
+    private static func loadICNS(_ name: String) -> NSImage? {
+        guard let base = resourcesURL else { return nil }
+        let url = base.appendingPathComponent("\(name).icns")
+        return NSImage(contentsOf: url)
+    }
+
+    // MARK: - AppIcon (Dock / Finder / 关于页)
+
+    /// 生成 CopyNote App 图标。优先读 bundle 的 AppIcon.icns / app-512.png；失败则代码绘制
     static func makeAppIcon(size: CGFloat = 512) -> NSImage {
+        // 尝试 icns
+        if let icns = loadICNS("AppIcon") {
+            if size == 512 { return icns }
+            let resized = NSImage(size: NSSize(width: size, height: size))
+            resized.lockFocus()
+            icns.draw(in: NSRect(x: 0, y: 0, width: size, height: size),
+                      from: NSRect.zero,
+                      operation: .sourceOver,
+                      fraction: 1)
+            resized.unlockFocus()
+            return resized
+        }
+        // 尝试高分辨率 PNG
+        if let hi = loadPNG("app-512") ?? loadPNG("app-128") ?? loadPNG("app-64") {
+            if size == 512 { return hi }
+            let resized = NSImage(size: NSSize(width: size, height: size))
+            resized.lockFocus()
+            hi.draw(in: NSRect(x: 0, y: 0, width: size, height: size))
+            resized.unlockFocus()
+            return resized
+        }
+        // 兜底：代码绘制（旧版本）
         let image = NSImage(size: NSSize(width: size, height: size))
         image.lockFocus()
         let ctx = NSGraphicsContext.current?.cgContext
-        drawAppIcon(in: CGRect(x: 0, y: 0, width: size, height: size), ctx: ctx)
+        drawAppIconFallback(in: CGRect(x: 0, y: 0, width: size, height: size), ctx: ctx)
         image.unlockFocus()
         return image
     }
 
-    private static func drawAppIcon(in rect: CGRect, ctx: CGContext?) {
+    // MARK: - MenuBar Status Icon (模板图)
+
+    /// 状态栏图标：使用代码绘制的单色轮廓符号（模板图），跟随系统菜单色。
+    /// 不使用彩色 statusbar PNG —— 彩色图被 isTemplate 模板化后 alpha 填满会显示成实心方块。
+    static func makeStatusBarImage(length: CGFloat = 18) -> NSImage {
+        return drawStatusBarFallback(length: length)
+    }
+
+    // MARK: - Fallback (legacy code-drawing)
+
+    private static func drawAppIconFallback(in rect: CGRect, ctx: CGContext?) {
         let size = rect.width
-        // 圆角背景（macOS App Icon 风格的形状近似）
         let corner = size * 0.185
         let bgPath = NSBezierPath(roundedRect: rect.insetBy(dx: size * 0.04, dy: size * 0.04),
                                    xRadius: corner, yRadius: corner)
-        // 渐变：暖黄色便签纸
         let gradient = NSGradient(colors: [
             NSColor(calibratedRed: 1.00, green: 0.93, blue: 0.58, alpha: 1),
             NSColor(calibratedRed: 0.98, green: 0.79, blue: 0.32, alpha: 1)
         ])
         gradient?.draw(in: bgPath, angle: -45)
-        // 顶部阴影
         NSColor.black.withAlphaComponent(0.08).setFill()
         let shadow = NSBezierPath(roundedRect: NSRect(
             x: rect.minX + size * 0.04,
@@ -38,7 +118,6 @@ enum AppIconFactory {
         ), xRadius: corner * 0.8, yRadius: corner * 0.8)
         shadow.fill()
 
-        // 纸张折角（右上）
         let foldSize = size * 0.18
         let fold = NSBezierPath()
         fold.move(to: NSPoint(x: rect.maxX - size * 0.04, y: rect.maxY - size * 0.04 - foldSize))
@@ -48,12 +127,10 @@ enum AppIconFactory {
         NSColor(calibratedRed: 0.90, green: 0.68, blue: 0.22, alpha: 1).setFill()
         fold.fill()
 
-        // 剪贴板符号（居中）
         let cbW = size * 0.42
         let cbH = size * 0.52
         let cbX = rect.midX - cbW / 2
         let cbY = rect.midY - cbH / 2 - size * 0.02
-        // 板身
         let boardRect = NSRect(x: cbX, y: cbY, width: cbW, height: cbH)
         let board = NSBezierPath(roundedRect: boardRect,
                                  xRadius: size * 0.04, yRadius: size * 0.04)
@@ -62,7 +139,6 @@ enum AppIconFactory {
         NSColor(calibratedWhite: 0.55, alpha: 1).setStroke()
         board.lineWidth = size * 0.012
         board.stroke()
-        // 板上的夹子
         let clipRect = NSRect(x: cbX + cbW * 0.28,
                               y: cbY + cbH - size * 0.11,
                               width: cbW * 0.44,
@@ -74,7 +150,6 @@ enum AppIconFactory {
         NSColor(calibratedWhite: 0.3, alpha: 1).setStroke()
         clip.lineWidth = size * 0.008
         clip.stroke()
-        // 夹子内侧条
         let clipInner = NSRect(x: cbX + cbW * 0.34,
                                y: cbY + cbH - size * 0.02,
                                width: cbW * 0.32,
@@ -82,7 +157,6 @@ enum AppIconFactory {
         NSColor(calibratedWhite: 0.25, alpha: 1).setFill()
         NSBezierPath(roundedRect: clipInner, xRadius: size * 0.012, yRadius: size * 0.012).fill()
 
-        // 便签纸上的三行文字
         let lineStartX = cbX + cbW * 0.14
         let lineEndX   = cbX + cbW * 0.86
         let topY = cbY + cbH * 0.70
@@ -98,7 +172,6 @@ enum AppIconFactory {
             line.stroke()
         }
 
-        // 复制勾号 ✓（右下角徽章）
         let badgeSize = size * 0.22
         let bx = rect.maxX - size * 0.11 - badgeSize
         let by = rect.minY + size * 0.11
@@ -107,7 +180,6 @@ enum AppIconFactory {
         NSColor(calibratedRed: 0.20, green: 0.78, blue: 0.35, alpha: 1).setFill()
         badge.fill()
         NSColor.white.withAlphaComponent(0.95).setStroke()
-        // 勾号
         let check = NSBezierPath()
         check.move(to: NSPoint(x: bx + badgeSize * 0.28, y: by + badgeSize * 0.52))
         check.line(to: NSPoint(x: bx + badgeSize * 0.46, y: by + badgeSize * 0.72))
@@ -119,21 +191,16 @@ enum AppIconFactory {
         check.stroke()
     }
 
-    // MARK: - MenuBar Icon (状态栏图标)
-
-    /// 菜单栏状态栏图标（18px 模板图：便签纸轮廓 + 复制符号）。
-    static func makeStatusBarImage(length: CGFloat = 18) -> NSImage {
+    private static func drawStatusBarFallback(length: CGFloat) -> NSImage {
         let img = NSImage(size: NSSize(width: length, height: length))
         img.isTemplate = true
         img.lockFocus()
         let rect = CGRect(x: 1, y: 1, width: length - 2, height: length - 2)
-        // 便签纸外框
         let r = length * 0.12
         let paper = NSBezierPath(roundedRect: rect, xRadius: r, yRadius: r)
         paper.lineWidth = 1.2
         NSColor.black.setStroke()
         paper.stroke()
-        // 右上折角
         let foldL = length * 0.28
         let fold = NSBezierPath()
         fold.move(to: NSPoint(x: rect.maxX - foldL, y: rect.maxY))
@@ -142,7 +209,6 @@ enum AppIconFactory {
         fold.close()
         NSColor.black.setFill()
         fold.fill()
-        // 复制符号（两个重叠矩形）
         let sw = length * 0.36
         let sh = length * 0.36
         let sx = rect.minX + length * 0.20
