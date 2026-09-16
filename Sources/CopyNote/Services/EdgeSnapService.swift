@@ -19,7 +19,9 @@ enum EdgeSnapService {
     static let peekWidth: CGFloat = 180
 
     /// 拖动结束时调用：若靠近某一边缘（容差内），返回该边缘的吸附结果；否则返回 nil。
-    static func snap(forWindowFrame frame: CGRect, visibleFrame: CGRect) -> SnapResult? {
+    /// restWidth 固定传迷你条休息态宽度（56），不能用当前 frame.width——
+    /// 否则在 peek 态（宽 180）拖动时会以 180 作为休息态宽度，吸附后条变粗。
+    static func snap(forWindowFrame frame: CGRect, visibleFrame: CGRect, restWidth: CGFloat) -> SnapResult? {
         let center = CGPoint(x: frame.midX, y: frame.midY)
         let distLeft = abs(center.x - visibleFrame.minX)
         let distRight = abs(visibleFrame.maxX - center.x)
@@ -27,7 +29,7 @@ enum EdgeSnapService {
         guard nearest <= snapThreshold + frame.width / 2 else { return nil }
         let edge: MiniEdge = distLeft <= distRight ? .left : .right
         return frames(for: edge, y: frame.minY, visibleFrame: visibleFrame,
-                       height: frame.height, restWidth: frame.width)
+                      height: frame.height, restWidth: restWidth)
     }
 
     /// 进入迷你模式时的默认吸附（默认右边缘、垂直居中）。

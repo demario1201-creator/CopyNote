@@ -95,7 +95,7 @@ struct MainNoteListView: View {
         Group {
             mainBodyView
         }
-        .frame(minWidth: 320, minHeight: 400)
+        .frame(minWidth: 400, minHeight: 400)
         .background(.ultraThinMaterial)
         .sheet(isPresented: $isEditing) {
             NoteEditorView(note: $editingNote, isNewNote: isNewNote) { saved in
@@ -813,6 +813,7 @@ private struct ToolbarHoverButton: View {
         }
         .buttonStyle(.plain)
         .help(title)
+        .accessibilityLabel(title)
         .onHover { h in withAnimation(.easeInOut(duration: 0.15)) { hovered = h } }
     }
 }
@@ -928,7 +929,7 @@ private struct ClipboardHistoryPopover: View {
 
     private var header: some View {
         HStack(spacing: 6) {
-            Label("复制历史（最多 10 条）", systemImage: "clock.arrow.circlepath")
+            Label(AppStrings.History.title, systemImage: "clock.arrow.circlepath")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.primary.opacity(0.85))
             Spacer(minLength: 0)
@@ -939,11 +940,11 @@ private struct ClipboardHistoryPopover: View {
                     .font(.system(size: 11))
             }
             .buttonStyle(.borderless)
-            .help("刷新")
+            .help(AppStrings.History.refresh)
             Button {
                 onClear()
             } label: {
-                Label("清空", systemImage: "trash")
+                Label(AppStrings.History.clear, systemImage: "trash")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(items.isEmpty ? Color.secondary.opacity(0.55) : Color.red.opacity(0.85))
             }
@@ -959,10 +960,10 @@ private struct ClipboardHistoryPopover: View {
             Image(systemName: "doc.on.clipboard")
                 .font(.system(size: 28))
                 .foregroundStyle(.tertiary)
-            Text("复制历史是空的")
+            Text(AppStrings.History.empty)
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.secondary)
-            Text("在主窗口或迷你条复制一次便签内容即可入史")
+            Text(AppStrings.History.emptyHint)
                 .font(.system(size: 10))
                 .foregroundStyle(.tertiary)
         }
@@ -994,12 +995,12 @@ private struct ClipboardHistoryRow: View {
             // 内容：标题（若有）+ 内容 2 行预览；最右下时间
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text(item.noteTitle.isEmpty ? "（无标题便签）" : item.noteTitle)
+                    Text(item.noteTitle.isEmpty ? AppStrings.History.emptyNote : item.noteTitle)
                         .font(.system(size: 12, weight: .semibold))
                         .lineLimit(1)
                         .foregroundStyle(.primary)
                     if item.contentSnapshot.isEmpty {
-                        Text("空")
+                        Text(AppStrings.History.emptyContent)
                             .font(.system(size: 9))
                             .padding(.horizontal, 4)
                             .padding(.vertical, 0.5)
@@ -1025,7 +1026,7 @@ private struct ClipboardHistoryRow: View {
                 flash()
             } label: {
                 Label {
-                    Text(flashCopied ? "已复制" : "复制")
+                    Text(flashCopied ? AppStrings.History.copied : AppStrings.History.recopy)
                         .font(.system(size: 10, weight: .semibold))
                 } icon: {
                     Image(systemName: flashCopied ? "checkmark.circle.fill" : "doc.on.doc.fill")
@@ -1039,7 +1040,7 @@ private struct ClipboardHistoryRow: View {
                 )
             }
             .buttonStyle(.plain)
-            .help("再次复制这条内容 ⌘ 点击列表任意处也可复制")
+            .help(AppStrings.History.recopyHint)
             .padding(.top, 2)
         }
         .padding(.horizontal, 12)
@@ -1071,7 +1072,7 @@ private struct ClipboardHistoryRow: View {
         let s = text
             .replacingOccurrences(of: "\n+", with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        if s.isEmpty { return "（内容为空）" }
+        if s.isEmpty { return AppStrings.History.emptyContent }
         if s.count > 180 {
             let i = s.index(s.startIndex, offsetBy: 180)
             return String(s[..<i]) + "…"
@@ -1089,9 +1090,9 @@ private struct ClipboardHistoryRow: View {
     private static func timeFormat(_ date: Date) -> String {
         let cal = Calendar.current
         if cal.isDateInToday(date) { return timeFmt.string(from: date) }
-        if cal.isDateInYesterday(date) { return "昨天 " + timeFmt.string(from: date) }
+        if cal.isDateInYesterday(date) { return AppStrings.History.yesterday + " " + timeFmt.string(from: date) }
         let comps = cal.dateComponents([.day], from: date, to: Date())
-        if let d = comps.day, d >= 2 && d < 7 { return "\(d)天前" }
+        if let d = comps.day, d >= 2 && d < 7 { return "\(d)\(AppStrings.History.daysAgo)" }
         let df = DateFormatter()
         df.locale = Locale(identifier: "zh_CN")
         df.dateFormat = "MM-dd HH:mm"

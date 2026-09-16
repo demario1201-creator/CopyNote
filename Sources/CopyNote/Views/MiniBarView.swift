@@ -160,13 +160,14 @@ struct MiniBarView: View {
 
     // MARK: - 共用小部件
 
-    /// 顶部 drag bar：两根短横 + 轻微透明度，给用户可拖动暗示
+    /// 顶部 drag bar：两个圆点 + 中等透明度，给用户明确的可拖动暗示
     private var dragBar: some View {
-        HStack(spacing: 3) {
-            Capsule().fill(Color.primary.opacity(0.22)).frame(width: 14, height: 2.5)
+        HStack(spacing: 4) {
+            Circle().fill(Color.primary.opacity(0.35)).frame(width: 4, height: 4)
+            Circle().fill(Color.primary.opacity(0.35)).frame(width: 4, height: 4)
         }
         .padding(.vertical, 4)
-        .accessibilityLabel("拖动吸附到边缘")
+        .accessibilityLabel(AppStrings.A11y.dragBar)
     }
 
     private var countBadge: some View {
@@ -279,6 +280,7 @@ private struct MiniSwatchDot: View {
             .contentShape(Circle())
             .onHover { isHovered = $0 }
             .onTapGesture { onQuickCopy(note) }
+            .accessibilityLabel("\(AppStrings.A11y.swatchCopy)：\(note.title.isEmpty ? AppStrings.MiniBar.untitled : note.title)")
             .contextMenu {
                 // 该颜色全部便签（updatedAt 降序，第一条即最近），点选复制对应内容
                 ForEach(allNotes, id: \.id) { n in

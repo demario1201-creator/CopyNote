@@ -24,13 +24,27 @@ final class MiniContainerView: NSView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
+    /// 顶部「可拖动」条带高度：覆盖 dragBar + 图标，恰好让开下方色点/便签区。
+    /// dragBar(~12) + padding top(8) + icon(15) ≈ 35，留余量到 40，避免盖住色点。
+    private let dragStripHeight: CGFloat = 40
+
+    /// 是否位于可拖动条带：rest 态（宽<100）整条顶部；peek 态左栏（<57.5）顶部。
+    /// 其余区域（色点、便签行、计数）保留给 SwiftUI 手势（复制 / 展开）。
+    private func isInDragRegion(_ point: NSPoint) -> Bool {
+        let topStrip = point.y >= bounds.height - dragStripHeight
+        if bounds.width < 100 { return topStrip }
+        return point.x < 57.5 && topStrip
+    }
+
     /// 让 SwiftUI 内容（NSHostingView）内部手势/onTapGesture 有机会处理：
     /// 点击落在哪块由 hostingView 决定；我们仍在 mouseDown 阶段按区域分发拖动逻辑。
+    /// 顶部拖拽条带直接命中本视图——NSHostingView 会吞掉鼠标事件，
+    /// 若不在此拦截，mouseDown 永远收不到，迷你条将无法拖动。
+    /// 注意：hitTest 的 point 位于 superview 坐标系，需 convert 到本视图 bounds。
     override func hitTest(_ point: NSPoint) -> NSView? {
-        let sub = super.hitTest(point)
-        // 只要命中在我们内部（包括 hostingView 及其子视图）就把事件留在本视图层级
-        // 由 mouseDown 判断是否 performDrag 或交给 SwiftUI。
-        return sub
+        let localPoint = convert(point, from: superview)
+        if isInDragRegion(localPoint) { return self }
+        return super.hitTest(point)
     }
 
     override func updateTrackingAreas() {
@@ -50,33 +64,41 @@ final class MiniContainerView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         guard let window = window else { return }
-        let w = bounds.width
         let localPoint = convert(event.locationInWindow, from: nil)
-        // 判断点击热区：
-        // - rest 态（宽<100）→ 统一非便签区：拖动 / 未移动则 expand
-        // - peek 态（宽≥100）：
-        //   · x < 57.5 → 左栏 56 + 分隔线 → 侧边非便签区：拖动 / 未移动则 expand
-        //   · x ≥ 57.5 → 右栏便签预览区：不拖动，交给 SwiftUI onTap 执行复制
-        let isSidebar: Bool
-        if w < 100 {
-            isSidebar = true
-        } else {
-            isSidebar = localPoint.x < 57.5
-        }
-        guard isSidebar else {
-            // 便签预览区：不 performDrag（否则会阻塞 onTapGesture），
-            // 直接把事件向上传递（nextResponder → hostingView）让 SwiftUI onTap 生效。
+        // 仅顶部拖拽条带响应拖动；其余区域（色点复制 / 便签行复制 / 侧边展开）交给 SwiftUI
+        guard isInDragRegion(localPoint) else {
             super.mouseDown(with: event)
             return
         }
-        // 侧边区域：保留原有 performDrag + 移动判断 expand/settle 逻辑
-        let origin = window.frame.origin
+
+        // nonactivating panel 上 performDrag 不可靠（面板不激活、不成为 key window，
+        // 不会真正移动窗口），改用手动事件循环。
+        // 关键：记录鼠标在窗口内的初始偏移量，每次用「事件鼠标屏幕位置 - 偏移量」定位窗口，
+        // 使鼠标始终落在窗口内同一相对位置，避免轮询 NSEvent.mouseLocation 造成的跳变错位。
         coordinator?.beginDrag()
-        window.performDrag(with: event)
+        let startOrigin = window.frame.origin
+        let initialMouseScreen = window.convertPoint(toScreen: event.locationInWindow)
+        let offset = NSPoint(x: initialMouseScreen.x - startOrigin.x,
+                             y: initialMouseScreen.y - startOrigin.y)
+        var moved = false
+
+        while true {
+            guard let next = window.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]) else { break }
+            if next.type == .leftMouseDragged {
+                let mouseScreen = window.convertPoint(toScreen: next.locationInWindow)
+                window.setFrameOrigin(NSPoint(x: mouseScreen.x - offset.x,
+                                              y: mouseScreen.y - offset.y))
+                moved = true
+            } else {
+                break
+            }
+        }
+
         coordinator?.endDrag()
-        let moved = hypot(window.frame.origin.x - origin.x,
-                          window.frame.origin.y - origin.y) > 3
-        if moved {
+
+        let displacement = hypot(window.frame.origin.x - startOrigin.x,
+                                 window.frame.origin.y - startOrigin.y)
+        if moved && displacement > 3 {
             coordinator?.settleMini()
         } else {
             coordinator?.expand()

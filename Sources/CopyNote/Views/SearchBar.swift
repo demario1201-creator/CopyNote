@@ -23,5 +23,6 @@ struct SearchBar: View {
         }
         .padding(8)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityLabel(AppStrings.A11y.searchField)
     }
 }

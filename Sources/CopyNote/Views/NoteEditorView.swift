@@ -9,6 +9,8 @@ struct NoteEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var newTagText = ""
     @State private var showPreview = false  // F1：编辑 vs 预览
+    /// 防抖保存：onChange 后延迟写入 store，避免每次击键都序列化 + 写盘
+    @State private var saveTask: Task<Void, Never>?
     /// 是否为新建便签（取消时如果为空则删除）
     var isNewNote: Bool = false
     /// 保存成功后回调（携带最终便签），供主列表选中并滚动到该便签
@@ -38,7 +40,13 @@ struct NoteEditorView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .shadow(color: .black.opacity(0.18), radius: 18, x: 0, y: 6)
         .onChange(of: note) { _, newNote in
-            store.update(newNote)
+            // 防抖保存：取消上一次延迟写入，1s 后再写入 store
+            saveTask?.cancel()
+            saveTask = Task {
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled else { return }
+                store.update(newNote)
+            }
         }
     }
 
@@ -50,7 +58,7 @@ struct NoteEditorView: View {
                 .fill(theme.swatch)
                 .frame(width: 10, height: 10)
                 .overlay(Circle().stroke(theme.swatchStroke.opacity(0.8), lineWidth: 1))
-            Text("编辑便签")
+            Text(AppStrings.Editor.title)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.secondary)
             // F3：收藏 + 锁定
@@ -62,7 +70,7 @@ struct NoteEditorView: View {
                     .foregroundStyle(note.isPinned ? .orange : .primary.opacity(0.5))
             }
             .buttonStyle(.plain)
-            .help(note.isPinned ? "取消收藏" : "收藏")
+            .help(note.isPinned ? AppStrings.NoteAction.unfavorite : AppStrings.NoteAction.favorite)
 
             Button {
                 withAnimation(.easeInOut(duration: 0.15)) { note.isLocked.toggle() }
@@ -72,7 +80,7 @@ struct NoteEditorView: View {
                     .foregroundStyle(note.isLocked ? Color(nsColor: .systemIndigo) : .primary.opacity(0.5))
             }
             .buttonStyle(.plain)
-            .help(note.isLocked ? "解除锁定" : "锁定便签（删除前需二次确认）")
+            .help(note.isLocked ? AppStrings.NoteAction.unlock : AppStrings.NoteAction.lock)
 
             Spacer()
 
@@ -86,9 +94,9 @@ struct NoteEditorView: View {
             }
             .buttonStyle(.plain)
             .padding(.trailing, 4)
-            .help(showPreview ? "返回编辑模式" : "Markdown 预览")
+            .help(showPreview ? AppStrings.Editor.edit : AppStrings.Editor.preview)
 
-            Text("\(wordCount) 字 · \(charCount) 字符")
+            Text("\(wordCount) \(AppStrings.Editor.wordCount) · \(charCount) \(AppStrings.Editor.charCount)")
                 .font(.system(size: 10))
                 .foregroundStyle(.tertiary)
         }
@@ -99,7 +107,7 @@ struct NoteEditorView: View {
     // MARK: - 标题输入（无边框）
 
     private var titleField: some View {
-        TextField("便签标题…", text: $note.title)
+        TextField(AppStrings.Editor.titlePlaceholder, text: $note.title)
             .textFieldStyle(.plain)
             .font(.system(size: 18, weight: .bold, design: .rounded))
             .padding(.horizontal, 2)
@@ -170,7 +178,7 @@ struct NoteEditorView: View {
                     // 预览模式标签
                     HStack {
                         Spacer()
-                        Text("预览")
+                        Text(AppStrings.Editor.preview)
                             .font(.system(size: 9, weight: .medium))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 6)
@@ -190,7 +198,7 @@ struct NoteEditorView: View {
                         .padding(8)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     if note.content.isEmpty {
-                        Text("开始书写内容…支持换行，Markdown 可选。")
+                        Text(AppStrings.Editor.contentHint)
                             .font(.system(size: 13, design: .rounded))
                             .foregroundStyle(.placeholder)
                             .padding(14)
@@ -212,7 +220,7 @@ struct NoteEditorView: View {
             let quickTags = store.allTags.filter { !note.tags.contains($0) }.prefix(6)
             if !quickTags.isEmpty {
                 HStack(spacing: 4) {
-                    Text("常用:")
+                    Text(AppStrings.Editor.frequentlyUsedShort)
                         .font(.system(size: 10))
                         .foregroundStyle(.tertiary)
                     ForEach(quickTags, id: \.self) { tag in
@@ -234,7 +242,7 @@ struct NoteEditorView: View {
 
             // 输入框
             HStack(spacing: 6) {
-                TextField("添加标签，回车确认", text: $newTagText)
+                TextField(AppStrings.Editor.tagInputHint, text: $newTagText)
                     .textFieldStyle(.roundedBorder)
                     .controlSize(.small)
                     .onSubmit(addTag)
@@ -312,18 +320,21 @@ struct NoteEditorView: View {
 
     // MARK: - 保存 / 取消
 
-    /// 取消：新建 → 直接丢弃（未插入 store）；编辑 → 无额外操作（onChange 已实时回写）
+    /// 取消：新建 → 直接丢弃（未插入 store）；编辑 → flush 待写入变更后关闭
     private func cancelEdit() {
+        saveTask?.cancel()
+        // 编辑模式下 flush 最后一次变更（防抖窗口内未写入的内容不丢失）
+        if !isNewNote { store.update(note) }
         dismiss()
     }
 
     /// 保存：空便签不保存（新建则丢弃，编辑则删除）；非空则插入或更新
     private func saveAndDismiss() {
+        saveTask?.cancel()
         let trimmedTitle = note.title.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedContent = note.content.trimmingCharacters(in: .whitespacesAndNewlines)
         let savedNote: Note?
         if trimmedTitle.isEmpty && trimmedContent.isEmpty {
-            // 空便签：新建直接丢弃；编辑则删除原有（避免空白条目）
             if !isNewNote { store.delete(note) }
             savedNote = nil
         } else if isNewNote {
@@ -332,8 +343,6 @@ struct NoteEditorView: View {
             store.update(note)
             savedNote = note
         }
-        // 先 dismiss，再延后触发 onSaved：避免在 sheet 关闭事务中同步修改
-        // 父视图 @State（selection/pendingScrollID），导致首次保存时滚动被吞掉
         dismiss()
         if let savedNote {
             DispatchQueue.main.async { onSaved?(savedNote) }

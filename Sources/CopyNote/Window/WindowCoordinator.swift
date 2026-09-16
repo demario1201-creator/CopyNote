@@ -49,7 +49,7 @@ final class WindowCoordinator: NSObject {
 
     func setupWindows() {
         // 主窗口
-        let mainRect = NSRect(x: 0, y: 0, width: 360, height: 520)
+        let mainRect = NSRect(x: 0, y: 0, width: 420, height: 520)
         let main = NSWindow(contentRect: mainRect,
                             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                             backing: .buffered, defer: false)
@@ -64,6 +64,7 @@ final class WindowCoordinator: NSObject {
             ).environment(store)
         )
         main.delegate = self
+        main.minSize = NSSize(width: 400, height: 400)
         main.center()
         self.mainWindow = main
 
@@ -101,12 +102,12 @@ final class WindowCoordinator: NSObject {
 
     // A1：主 → 迷你：主窗口 alpha + frame 同步 morph 至 miniPanel restFrame 再切过去
     func hideToMini() {
-        guard !isMini else { return }
+        guard !isMini, !isAnimatingMini else { return }
         isMini = true
+        isAnimatingMini = true
 
         let main = mainWindow!
         // Bug #2：在任何 morph 动画**之前**保存主窗口原 frame（expand 时还原）
-        // 仅当主窗口可见、尺寸合理时才覆盖 savedMainFrame（防止动画途中重复调用连续覆盖）
         let currentMainFrame = main.frame
         if currentMainFrame.width >= 200 && currentMainFrame.height >= 200 {
             savedMainFrame = currentMainFrame
@@ -117,6 +118,7 @@ final class WindowCoordinator: NSObject {
         guard let vf = screen?.visibleFrame else {
             main.orderOut(nil)
             showMiniPanel()
+            isAnimatingMini = false
             return
         }
         let snap: SnapResult
@@ -130,61 +132,76 @@ final class WindowCoordinator: NSObject {
         lastSnap = snap
         isPeeking = false
 
-        // 先把 miniPanel 放到 restFrame，透明不显示，这样动画结束时可以无缝衔接
-        miniPanel.setFrame(snap.restFrame, display: true)
+        // 用快照替换 contentView，避免 morph 期间 SwiftUI 实时重排造成内容挤压闪烁
+        let originalContentView = main.contentView
+        let snapshotView = snapshotContentView(of: main)
+        if let snapshotView { main.contentView = snapshotView }
+
+        // 先置透明再设 frame/orderFront，避免迷你条此前可见时闪一帧
         miniPanel.alphaValue = 0
+        miniPanel.setFrame(snap.restFrame, display: true)
         miniPanel.orderFrontRegardless()
 
-        // 主窗口先保持 level/样式，再收缩到 restFrame 中心位置
+        // 主窗口收缩到 restFrame 中心位置
         let morph = morphFrame(from: currentMainFrame, to: snap.restFrame)
         main.level = .floating
         NSAnimationContext.runAnimationGroup({ ctx in
             ctx.duration = 0.28
-            ctx.timingFunction = CAMediaTimingFunction(controlPoints: 0.4, 0.0, 0.2, 1.0)
+            ctx.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.0, 0.2, 1.0)
             main.animator().setFrame(morph, display: true)
             main.animator().alphaValue = 0.0
             miniPanel.animator().alphaValue = 1.0
         }, completionHandler: { [weak self] in
             guard let self else { return }
             main.orderOut(nil)
+            // 还原 frame 到原始尺寸 + contentView，使下一次 expand 可直接在完整尺寸快照，
+            // 避免 SwiftUI 从 56×220 重新布局到 420×520 的额外延迟。
+            if let saved = savedMainFrame { main.setFrame(saved, display: false) }
+            main.contentView = originalContentView
             main.alphaValue = 1.0
             main.level = self.isPinned ? .floating : .normal
-            self.pulseShadow(on: self.miniPanel)
+            self.isAnimatingMini = false
         })
     }
 
     // A1：迷你 → 主：miniPanel 放大到主窗口原位 + alpha crossfade
     func expand() {
+        guard !isAnimatingMini else { return }
         if isMini {
+            isAnimatingMini = true
+            isPeeking = false
             let main = mainWindow!
-            let snap = lastSnap
-            // 迷你当前 frame（决定 morph 起点）
-            let fromMini: CGRect
-            if let snap, isPeeking { fromMini = snap.peekFrame }
-            else if let snap { fromMini = snap.restFrame }
-            else { fromMini = miniPanel.frame }
+            // 直接用迷你条当前实际 frame 作为 morph 起点，避免 snap 缓存值与实际位置错位
+            let fromMini = miniPanel.frame
 
-            // Bug #2：还原 savedMainFrame；如果没有保存（非常罕见），回退当前 main.frame
-            // 如果 main 当前 frame 实际是 morph 后小尺寸（<=220 宽），用 center()/默认尺寸
+            // 还原 savedMainFrame；若尺寸异常则回退默认
             var desired = savedMainFrame ?? main.frame
             if desired.width < 200 || desired.height < 200 {
-                desired = NSRect(x: 0, y: 0, width: 360, height: 520)
+                desired = NSRect(x: 0, y: 0, width: 420, height: 520)
                 main.setFrame(desired, display: false)
                 main.center()
                 desired = main.frame
                 savedMainFrame = desired
             }
 
-            // 主窗口从 (与 mini 同中心同尺寸) morph 回 desired
-            let morphStart = morphFrame(from: desired, to: fromMini)
-            main.setFrame(morphStart, display: false)
+            // 先把主窗口置于目标尺寸（display:true 强制更新 backing store），
+            // alpha=0 后 orderFront，让 SwiftUI 完成完整布局再快照；最后缩到 morph 起点。
+            // alpha 在 orderFront 之前已置 0，完整尺寸窗口不会被看到。
+            main.setFrame(desired, display: true)
             main.alphaValue = 0
             main.orderFront(nil)
+            let originalContentView = main.contentView
+            if let snapshotView = snapshotContentView(of: main) {
+                main.contentView = snapshotView
+            }
+            let morphStart = morphFrame(from: desired, to: fromMini)
+            // 缩到 morph 起点后再 activate，避免激活时闪一帧完整尺寸窗口
+            main.setFrame(morphStart, display: false)
             NSApp.activate(ignoringOtherApps: true)
 
             NSAnimationContext.runAnimationGroup({ ctx in
-                ctx.duration = 0.32
-                ctx.timingFunction = CAMediaTimingFunction(controlPoints: 0.0, 0.0, 0.2, 1.0)
+                ctx.duration = 0.28
+                ctx.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.0, 0.2, 1.0)
                 main.animator().setFrame(desired, display: true)
                 main.animator().alphaValue = 1.0
                 miniPanel.animator().alphaValue = 0.0
@@ -192,11 +209,12 @@ final class WindowCoordinator: NSObject {
                 guard let self else { return }
                 self.miniPanel.orderOut(nil)
                 self.miniPanel.alphaValue = 1.0
+                main.contentView = originalContentView
                 self.isMini = false
-                self.isPeeking = false
+                self.isAnimatingMini = false
             })
         } else {
-            // 非迷你态展开：也顺手刷新一下 savedMainFrame（防止被意外覆盖）
+            // 非迷你态展开：刷新 savedMainFrame
             let f = mainWindow.frame
             if f.width >= 200 && f.height >= 200 { savedMainFrame = f }
             mainWindow.orderFront(nil)
@@ -222,6 +240,45 @@ final class WindowCoordinator: NSObject {
                       y: cy - size.height / 2,
                       width: size.width,
                       height: size.height)
+    }
+
+    /// 对窗口 contentView 截图，返回一个填充窗口的 NSImageView（图像随窗口缩放）。
+    /// morph 期间用快照替换 SwiftUI contentView，避免实时重排导致内容挤压闪烁。
+    /// 优先用 dataWithPDF（对 SwiftUI NSHostingView 最可靠），失败时回退 layer.render。
+    /// 调用前需确保窗口已 orderFront 或 display，图层才有内容。
+    private func snapshotContentView(of window: NSWindow) -> NSImageView? {
+        guard let contentView = window.contentView else { return nil }
+        let bounds = contentView.bounds
+        guard !bounds.isEmpty else { return nil }
+        contentView.wantsLayer = true
+        contentView.needsLayout = true
+        contentView.layoutSubtreeIfNeeded()
+        contentView.displayIfNeeded()
+
+        let image: NSImage
+        // dataWithPDF 对任意 NSView（含 SwiftUI NSHostingView）都能完整捕获内容
+        let pdfData = contentView.dataWithPDF(inside: bounds)
+        if let pdfImage = NSImage(data: pdfData) {
+            image = pdfImage
+        } else if let layer = contentView.layer {
+            // 兜底：直接渲染图层树
+            let layerImage = NSImage(size: bounds.size)
+            layerImage.lockFocus()
+            if let ctx = NSGraphicsContext.current?.cgContext {
+                layer.render(in: ctx)
+            }
+            layerImage.unlockFocus()
+            image = layerImage
+        } else {
+            return nil
+        }
+
+        let imageView = NSImageView(image: image)
+        imageView.frame = bounds
+        imageView.autoresizingMask = [.width, .height]
+        imageView.imageScaling = .scaleAxesIndependently
+        imageView.imageAlignment = .alignCenter
+        return imageView
     }
 
     // MARK: - Mini panel geometry
@@ -282,7 +339,8 @@ final class WindowCoordinator: NSObject {
         let vf = screen.visibleFrame
         let frame = miniPanel.frame
         let snap: SnapResult
-        if let result = EdgeSnapService.snap(forWindowFrame: frame, visibleFrame: vf) {
+        if let result = EdgeSnapService.snap(forWindowFrame: frame, visibleFrame: vf,
+                                             restWidth: miniSize.width) {
             snap = result
         } else {
             let edge: MiniEdge = frame.midX < vf.midX ? .left : .right

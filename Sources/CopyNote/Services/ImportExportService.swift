@@ -26,14 +26,19 @@ enum ImportExportService {
         guard let data = try? encoder.encode(notes) else { return }
 
         let panel = NSSavePanel()
-        panel.title = "导出便签"
+        panel.title = AppStrings.App.exportAll
         panel.nameFieldStringValue = defaultName
         panel.allowedContentTypes = [.json]
         panel.canCreateDirectories = true
         panel.isExtensionHidden = false
 
         if panel.runModal() == .OK, let url = panel.url {
-            try? data.write(to: url, options: .atomic)
+            do {
+                try data.write(to: url, options: .atomic)
+            } catch {
+                showAlert(title: AppStrings.App.exportFailedTitle,
+                          message: AppStrings.App.exportFailedMsg)
+            }
         }
     }
 
@@ -44,14 +49,22 @@ enum ImportExportService {
     @discardableResult
     static func importNotes(store: NoteStore) -> Int {
         let panel = NSOpenPanel()
-        panel.title = "导入便签"
+        panel.title = AppStrings.App.importJSON
         panel.allowedContentTypes = [.json]
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
 
-        guard panel.runModal() == .OK, let url = panel.url,
-              let data = try? Data(contentsOf: url) else { return 0 }
+        guard panel.runModal() == .OK, let url = panel.url else { return 0 }
+
+        let data: Data
+        do {
+            data = try Data(contentsOf: url)
+        } catch {
+            showAlert(title: AppStrings.App.importFailedTitle,
+                      message: AppStrings.App.importFileUnreadable)
+            return 0
+        }
 
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
@@ -62,6 +75,8 @@ enum ImportExportService {
         } else if let single = try? decoder.decode(Note.self, from: data) {
             imported = [single]
         } else {
+            showAlert(title: AppStrings.App.importFailedTitle,
+                      message: AppStrings.App.importFailedMsg)
             return 0
         }
 
@@ -71,6 +86,27 @@ enum ImportExportService {
             store.add(note)
             count += 1
         }
+
+        if count > 0 {
+            showAlert(title: AppStrings.App.name,
+                      message: String(format: AppStrings.App.importSuccess, count),
+                      style: .informational)
+        }
         return count
+    }
+
+    // MARK: - Alert Helper
+
+    private static func showAlert(title: String, message: String, style: NSAlert.Style = .warning) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.alertStyle = style
+        alert.addButton(withTitle: "OK")
+        if let window = NSApp.keyWindow {
+            alert.beginSheetModal(for: window) { _ in }
+        } else {
+            alert.runModal()
+        }
     }
 }

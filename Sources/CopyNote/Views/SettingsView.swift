@@ -300,8 +300,10 @@ private struct BackupSettingsView: View {
         if let window = NSApp.keyWindow {
             alert.beginSheetModal(for: window) { resp in
                 if resp == .alertFirstButtonReturn {
+                    let decoder = JSONDecoder()
+                    decoder.dateDecodingStrategy = .iso8601
                     if let data = try? Data(contentsOf: url),
-                       let notes = try? JSONDecoder().decode([Note].self, from: data) {
+                       let notes = try? decoder.decode([Note].self, from: data) {
                         store.replaceNotes(notes)
                         refreshBackups()
                     }
@@ -317,21 +319,35 @@ private struct BackupSettingsView: View {
 
     // MARK: Format
 
-    private func formatDate(_ date: Date) -> String {
+    private static let todayFmt: DateFormatter = {
         let f = DateFormatter()
+        f.dateFormat = "HH:mm:ss"
+        return f
+    }()
+
+    private static let yesterdayFmt: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f
+    }()
+
+    private static let fullFmt: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd HH:mm"
+        return f
+    }()
+
+    private func formatDate(_ date: Date) -> String {
         let cal = Calendar.current
         if cal.isDateInToday(date) {
-            f.dateFormat = "HH:mm:ss"
-            return AppStrings.Settings.date + ": \(f.string(from: date))"
+            return AppStrings.Settings.date + ": " + Self.todayFmt.string(from: date)
         }
         if cal.isDateInYesterday(date) {
-            f.dateFormat = "HH:mm"
-            return "昨天 \(f.string(from: date))"
+            return AppStrings.History.yesterday + " \(Self.yesterdayFmt.string(from: date))"
         }
-        f.locale = LanguageManager.shared.isChinese
+        Self.fullFmt.locale = LanguageManager.shared.isChinese
             ? Locale(identifier: "zh_CN") : Locale(identifier: "en_US")
-        f.dateFormat = "yyyy-MM-dd HH:mm"
-        return f.string(from: date)
+        return Self.fullFmt.string(from: date)
     }
 
     private func formatSize(_ bytes: Int64) -> String {
@@ -370,7 +386,7 @@ private struct AboutSettingsView: View {
                 Text(AppStrings.Settings.version)
                     .font(.system(size: 11))
                     .foregroundStyle(.tertiary)
-                Text("1.6.0")
+                Text("1.7.0")
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .foregroundStyle(.secondary)
             }

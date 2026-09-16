@@ -42,6 +42,12 @@ enum AppStrings {
         static let quit = tr("退出 CopyNote", "Quit CopyNote")
         static let settings = tr("设置…", "Settings…")
         static let hotkeySettings = tr("快捷键设置…", "Hotkey Settings…")
+        static let importFailedTitle = tr("导入失败", "Import Failed")
+        static let importFailedMsg = tr("无法解析所选文件，请确认是 CopyNote 导出的 JSON 格式。", "Could not parse the selected file. Please ensure it's a valid CopyNote JSON export.")
+        static let importFileUnreadable = tr("无法读取文件", "Could not read file")
+        static let exportFailedTitle = tr("导出失败", "Export Failed")
+        static let exportFailedMsg = tr("写入文件失败，请检查目标位置权限。", "Failed to write file. Please check the destination permissions.")
+        static let importSuccess = tr("成功导入 %d 条便签", "Successfully imported %d notes")
     }
 
     // MARK: - Toolbar
@@ -88,13 +94,18 @@ enum AppStrings {
         static let title = tr("编辑便签", "Edit Note")
         static let titlePlaceholder = tr("便签标题…", "Note title…")
         static let contentPlaceholder = tr("写点什么…", "Write something…")
+        static let contentHint = tr("开始书写内容…支持换行，Markdown 可选。", "Start writing… Supports line breaks, optional Markdown.")
         static let preview = tr("预览", "Preview")
         static let edit = tr("编辑", "Edit")
         static let done = tr("保存", "Save")
         static let cancel = tr("取消", "Cancel")
         static let tags = tr("标签", "Tags")
         static let tagPlaceholder = tr("输入标签名…", "Enter tag name…")
+        static let tagInputHint = tr("添加标签，回车确认", "Add tag, press Enter to confirm")
         static let frequentlyUsed = tr("常用标签", "Frequently Used")
+        static let frequentlyUsedShort = tr("常用:", "Frequent:")
+        static let wordCount = tr("字", "words")
+        static let charCount = tr("字符", "chars")
     }
 
     // MARK: - MiniBar
@@ -117,6 +128,10 @@ enum AppStrings {
         static let recopy = tr("复制", "Recopy")
         static let copied = tr("已复制", "Copied")
         static let emptyNote = tr("（无标题便签）", "(Untitled note)")
+        static let emptyContent = tr("（内容为空）", "(Empty)")
+        static let recopyHint = tr("再次复制这条内容 ⌘ 点击列表任意处也可复制", "Recopy this content ⌘ Click anywhere in the list to copy")
+        static let yesterday = tr("昨天", "Yesterday")
+        static let daysAgo = tr("天前", "days ago")
     }
 
     // MARK: - Hotkey Settings
@@ -199,6 +214,15 @@ enum AppStrings {
     // MARK: - Backup
     enum Backup {
         static let backupCreated = tr("自动备份已创建", "Auto backup created")
+    }
+
+    // MARK: - Accessibility
+    enum A11y {
+        static let noteRow = tr("便签", "Note")
+        static let noteRowHint = tr("单击复制内容", "Click to copy content")
+        static let searchField = tr("搜索便签", "Search notes")
+        static let swatchCopy = tr("复制", "Copy")
+        static let dragBar = tr("拖动吸附到边缘", "Drag to snap to edge")
     }
 
     // MARK: - Helper

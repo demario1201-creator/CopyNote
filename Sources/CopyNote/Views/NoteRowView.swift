@@ -17,9 +17,19 @@ struct NoteRowView: View {
     @State private var hovered = false
     @State private var copiedFlash = false  // A3 脉冲描边
 
+    // 悬浮预览：鼠标移入正文时弹出完整内容的 popover
+    @State private var contentHovered = false
+    @State private var showPreview = false
+    @State private var previewHovered = false
+
     private var theme: NoteColorTheme { NoteColorTheme(fromHex: note.colorHex) }
     private var copyText: String {
         note.content.isEmpty ? note.title : note.content
+    }
+
+    /// 便签是否有正文（空内容不弹预览）
+    private var hasContent: Bool {
+        !note.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
@@ -38,6 +48,8 @@ struct NoteRowView: View {
             ClipboardService.copy(copyText, noteID: note.id, noteTitle: note.title)
             triggerCopiedFeedback()
         }
+        .accessibilityLabel("\(AppStrings.A11y.noteRow)：\(note.title.isEmpty ? AppStrings.MiniBar.untitled : note.title)")
+        .accessibilityHint(AppStrings.A11y.noteRowHint)
     }
 
     // MARK: - Full（展开模式）—— 卡片化 + 左侧色条
@@ -63,7 +75,7 @@ struct NoteRowView: View {
                                     .foregroundStyle(note.isPinned ? Color.orange : Color.primary.opacity(0.5))
                             }
                             .buttonStyle(.plain)
-                            .help(note.isPinned ? "取消收藏" : "收藏")
+                            .help(note.isPinned ? AppStrings.NoteAction.unfavorite : AppStrings.NoteAction.favorite)
                             .opacity(hovered || note.isPinned ? 1 : 0.3)
                             .animation(.easeInOut(duration: 0.15), value: hovered)
 
@@ -73,12 +85,12 @@ struct NoteRowView: View {
                                     .foregroundStyle(note.isLocked ? Color(nsColor: .systemIndigo) : Color.primary.opacity(0.5))
                             }
                             .buttonStyle(.plain)
-                            .help(note.isLocked ? "解除锁定（删除前将不再确认）" : "锁定（删除前需二次确认）")
+                            .help(note.isLocked ? AppStrings.NoteAction.unlock : AppStrings.NoteAction.lock)
                             .opacity(hovered || note.isLocked ? 1 : 0.3)
                             .animation(.easeInOut(duration: 0.15), value: hovered)
                         }
 
-                        Text(note.title.isEmpty ? "无标题" : note.title)
+                        Text(note.title.isEmpty ? AppStrings.MiniBar.untitled : note.title)
                             .font(.system(size: 14, weight: .semibold, design: .rounded))
                             .lineLimit(1)
 
@@ -91,7 +103,7 @@ struct NoteRowView: View {
                                     .font(.system(size: 11))
                             }
                             .buttonStyle(.borderless)
-                            .help("编辑")
+                            .help(AppStrings.NoteAction.edit)
                             Button {
                                 _ = onRequestDelete()
                             } label: {
@@ -100,7 +112,7 @@ struct NoteRowView: View {
                                     .foregroundStyle(note.isLocked ? Color.red.opacity(0.6) : .primary)
                             }
                             .buttonStyle(.borderless)
-                            .help(note.isLocked ? "已锁定：删除前将显示确认" : "删除")
+                            .help(note.isLocked ? "\(AppStrings.NoteAction.delete)🔒" : AppStrings.NoteAction.delete)
                         }
                         .opacity(hovered ? 1 : 0.28)
                         .animation(.easeInOut(duration: 0.15), value: hovered)
@@ -111,6 +123,11 @@ struct NoteRowView: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(3)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                        .onHover { hovering in handleContentHover(hovering) }
+                        .popover(isPresented: $showPreview, arrowEdge: .top) {
+                            contentPreviewPopover
+                        }
                     HStack(alignment: .bottom, spacing: 8) {
                         if !note.tags.isEmpty {
                             HStack(spacing: 3) {
@@ -198,7 +215,7 @@ struct NoteRowView: View {
                 .foregroundStyle(copied ? .green : .secondary)
                 .scaleEffect(copied ? 1.12 : 1.0)
                 .animation(.easeOut(duration: 0.15), value: copied)
-            Text(note.title.isEmpty ? "无标题" : note.title)
+            Text(note.title.isEmpty ? AppStrings.MiniBar.untitled : note.title)
                 .font(.system(size: 12, weight: .medium, design: .rounded))
                 .lineLimit(1)
                 .truncationMode(.tail)
@@ -239,12 +256,12 @@ struct NoteRowView: View {
                     Image(systemName: "pencil").font(.system(size: 9.5))
                 }
                 .buttonStyle(.borderless)
-                .help("编辑")
+                .help(AppStrings.NoteAction.edit)
                 Button { _ = onRequestDelete() } label: {
                     Image(systemName: note.isLocked ? "trash.slash" : "trash").font(.system(size: 9.5))
                 }
                 .buttonStyle(.borderless)
-                .help(note.isLocked ? "已锁定：删除前将显示确认" : "删除")
+                .help(note.isLocked ? "\(AppStrings.NoteAction.delete)🔒" : AppStrings.NoteAction.delete)
                 .transition(.opacity)
             }
         }
@@ -265,6 +282,56 @@ struct NoteRowView: View {
         .scaleEffect(hovered ? 1.006 : 1)
         .animation(.easeInOut(duration: 0.16), value: hovered)
         .padding(.vertical, 1)
+    }
+
+    // MARK: - 悬浮预览（鼠标移入正文 → popover 展示完整内容）
+
+    private func handleContentHover(_ hovering: Bool) {
+        guard hasContent else { return }
+        contentHovered = hovering
+        if hovering {
+            Task {
+                try? await Task.sleep(for: .milliseconds(300))
+                guard contentHovered else { return }
+                withAnimation(.easeInOut(duration: 0.25)) { showPreview = true }
+            }
+        } else {
+            Task {
+                try? await Task.sleep(for: .milliseconds(120))
+                guard !previewHovered else { return }
+                withAnimation(.easeInOut(duration: 0.2)) { showPreview = false }
+            }
+        }
+    }
+
+    private var contentPreviewPopover: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 10) {
+                if !note.title.isEmpty {
+                    HStack(spacing: 6) {
+                        RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                            .fill(theme.swatch)
+                            .frame(width: 3, height: 14)
+                            .opacity(theme == .default ? 0 : 1)
+                        Text(note.title)
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    }
+                    Divider().opacity(0.4)
+                }
+                Text(MarkdownRenderer.render(note.content))
+                    .font(.system(size: 13, design: .rounded))
+                    .textSelection(.enabled)
+            }
+            .padding(16)
+            .frame(maxWidth: 360, alignment: .leading)
+        }
+        .frame(maxHeight: 400)
+        .onHover { hovering in
+            previewHovered = hovering
+            if !hovering {
+                withAnimation(.easeInOut(duration: 0.2)) { showPreview = false }
+            }
+        }
     }
 
     // MARK: - A3 复制反馈（绿色描边脉冲 + 基础）
