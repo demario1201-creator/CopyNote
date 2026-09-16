@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CopyNote — 轻若鸿毛的 macOS 便签</title>
+<meta name="description" content="原生 SwiftUI 打造的 macOS 菜单栏便签，单击即复制，即取即用。">
+<link rel="icon" href="copynote-icon.png" type="image/png">
+<style>
+/* ========== Reset & Base ========== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0a;--bg2:#111;--surface:#161616;--surface2:#1e1e1e;
+  --border:rgba(255,255,255,.08);--border-hover:rgba(255,255,255,.16);
+  --text:#f5f5f5;--text-secondary:#a0a0a0;--text-muted:#666;
+  --accent:#2dd4bf;--accent-dim:rgba(45,212,191,.15);--accent-glow:rgba(45,212,191,.3);
+  --radius:16px;--max-w:920px;
+}
+html{scroll-behavior:smooth;-webkit-font-smoothing:antialiased;font-size:16px}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text','Helvetica Neue',sans-serif;
+  background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden;
+}
+a{color:inherit;text-decoration:none}
+img{max-width:100%;display:block}
+::selection{background:var(--accent);color:var(--bg)}
+
+/* ========== Layout ========== */
+.container{max-width:var(--max-w);margin:0 auto;padding:0 24px}
+.section{padding:120px 0;position:relative}
+
+/* ========== Nav ========== */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  background:rgba(10,10,10,.72);border-bottom:1px solid var(--border);
+  transition:border-color .3s;
+}
+nav .container{display:flex;align-items:center;justify-content:space-between;height:60px}
+.nav-brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px}
+.nav-brand img{width:28px;height:28px;border-radius:7px}
+.nav-links{display:flex;align-items:center;gap:28px}
+.nav-links a{font-size:14px;color:var(--text-secondary);transition:color .2s}
+.nav-links a:hover{color:var(--text)}
+.nav-cta{
+  font-size:13px;font-weight:500;padding:7px 16px;border-radius:8px;
+  background:var(--accent);color:#0a0a0a;transition:transform .2s,box-shadow .2s;
+}
+.nav-cta:hover{transform:translateY(-1px);box-shadow:0 0 24px var(--accent-glow)}
+@media(max-width:640px){.nav-links{display:none}}
+
+/* ========== Hero ========== */
+.hero{text-align:center;padding:160px 0 100px;position:relative}
+.hero::before{
+  content:'';position:absolute;top:-200px;left:50%;transform:translateX(-50%);
+  width:600px;height:600px;border-radius:50%;
+  background:radial-gradient(circle,rgba(45,212,191,.12) 0%,transparent 70%);
+  pointer-events:none;
+}
+.hero-icon{
+  width:120px;height:120px;border-radius:28px;margin:0 auto 40px;
+  box-shadow:0 0 0 1px var(--border),0 20px 60px rgba(0,0,0,.5);
+  transition:transform .4s cubic-bezier(.4,0,.2,1);
+}
+.hero-icon:hover{transform:scale(1.04) rotate(-2deg)}
+.hero h1{
+  font-size:clamp(36px,5vw,56px);font-weight:800;letter-spacing:-.03em;
+  margin-bottom:20px;line-height:1.1;
+}
+.hero h1 .gradient{
+  background:linear-gradient(135deg,var(--accent) 0%,#7dd3fc 100%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+}
+.hero-sub{
+  font-size:clamp(17px,2vw,20px);color:var(--text-secondary);
+  max-width:560px;margin:0 auto 40px;line-height:1.5;
+}
+.hero-badges{
+  display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-bottom:48px;
+}
+.badge{
+  font-size:12px;font-weight:500;padding:5px 12px;border-radius:6px;
+  background:var(--surface);border:1px solid var(--border);color:var(--text-secondary);
+  transition:border-color .2s,color .2s;
+}
+.badge:hover{border-color:var(--border-hover);color:var(--text)}
+.hero-cta{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.btn{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:14px;font-weight:600;padding:12px 24px;border-radius:10px;
+  transition:transform .2s,box-shadow .2s,background .2s;cursor:pointer;border:none;
+}
+.btn-primary{background:var(--accent);color:#0a0a0a}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 32px var(--accent-glow)}
+.btn-secondary{background:var(--surface);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{border-color:var(--border-hover);background:var(--surface2)}
+
+/* ========== Section Header ========== */
+.sec-header{text-align:center;margin-bottom:64px}
+.sec-header h2{
+  font-size:clamp(28px,4vw,40px);font-weight:700;letter-spacing:-.02em;margin-bottom:16px;
+}
+.sec-header p{font-size:17px;color:var(--text-secondary);max-width:560px;margin:0 auto}
+.sec-header .accent{color:var(--accent)}
+
+/* ========== Quote Block ========== */
+.quote-block{
+  text-align:center;max-width:680px;margin:0 auto 80px;padding:32px;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  position:relative;
+}
+.quote-block::before{
+  content:'"';position:absolute;top:-20px;left:30px;font-size:80px;
+  color:var(--accent);opacity:.15;font-family:Georgia,serif;
+}
+.quote-block p{font-size:18px;line-height:1.7;color:var(--text)}
+
+/* ========== Feature Grid ========== */
+.feature-grid{
+  display:grid;grid-template-columns:repeat(2,1fr);gap:16px;
+}
+@media(max-width:640px){.feature-grid{grid-template-columns:1fr}}
+.feature-card{
+  padding:32px 28px;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);transition:border-color .3s,transform .3s;
+}
+.feature-card:hover{border-color:var(--border-hover);transform:translateY(-2px)}
+.feature-icon{font-size:28px;margin-bottom:16px;display:block}
+.feature-card h3{font-size:18px;font-weight:600;margin-bottom:8px}
+.feature-card p{font-size:14px;color:var(--text-secondary);line-height:1.6}
+
+/* ========== Feature Strip (alternating) ========== */
+.strip{display:flex;flex-direction:column;gap:80px}
+.strip-item{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+.strip-item:nth-child(even){direction:rtl}
+.strip-item:nth-child(even)>*{direction:ltr}
+@media(max-width:768px){.strip-item{grid-template-columns:1fr!important;direction:ltr!important}}
+.strip-text h3{font-size:24px;font-weight:700;margin-bottom:16px;letter-spacing:-.01em}
+.strip-text p{font-size:16px;color:var(--text-secondary);line-height:1.7;margin-bottom:16px}
+.strip-text ul{list-style:none;padding:0}
+.strip-text li{font-size:14px;color:var(--text-secondary);padding:4px 0;padding-left:20px;position:relative}
+.strip-text li::before{content:'';position:absolute;left:0;top:12px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.strip-visual{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:24px;min-height:280px;display:flex;align-items:center;justify-content:center;
+  position:relative;overflow:hidden;
+}
+
+/* ========== Mini Bar Mockup ========== */
+.mini-bar-mock{
+  width:56px;border-radius:14px;background:rgba(255,255,255,.06);
+  border:1px solid var(--border);padding:8px 0;display:flex;flex-direction:column;align-items:center;gap:8px;
+}
+.mini-bar-mock .dot{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.15)}
+.mini-bar-mock .dot.c1{background:#fbbf24}
+.mini-bar-mock .dot.c2{background:#34d399}
+.mini-bar-mock .dot.c3{background:#60a5fa}
+.mini-bar-mock .dot.c4{background:#f472b6}
+.mini-bar-mock .count{font-size:10px;color:var(--text-muted);margin-top:4px}
+
+/* ========== Note Card Mockup ========== */
+.note-mock{width:100%;display:flex;flex-direction:column;gap:8px}
+.note-item{
+  padding:12px 16px;background:var(--surface2);border:1px solid var(--border);
+  border-radius:10px;display:flex;align-items:center;gap:12px;transition:border-color .2s;
+}
+.note-item:hover{border-color:var(--accent)}
+.note-item .nc-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.note-item .nc-title{font-size:13px;font-weight:500}
+.note-item .nc-meta{font-size:11px;color:var(--text-muted);margin-left:auto}
+.note-item.flash{border-color:var(--accent);background:var(--accent-dim)}
+
+/* ========== Terminal Block ========== */
+.terminal{
+  background:#0d0d0d;border:1px solid var(--border);border-radius:12px;
+  overflow:hidden;font-family:'SF Mono',Menlo,Monaco,Consolas,monospace;
+}
+.terminal-bar{
+  display:flex;align-items:center;gap:8px;padding:10px 16px;
+  border-bottom:1px solid var(--border);background:rgba(255,255,255,.03);
+}
+.terminal-bar .dots{display:flex;gap:6px}
+.terminal-bar .dots span{width:12px;height:12px;border-radius:50%}
+.terminal-bar .dots span:nth-child(1){background:#ff5f57}
+.terminal-bar .dots span:nth-child(2){background:#febc2e}
+.terminal-bar .dots span:nth-child(3){background:#28c840}
+.terminal-bar .label{font-size:12px;color:var(--text-muted);margin-left:8px}
+.terminal-body{padding:20px 24px;font-size:13px;line-height:1.8}
+.terminal-body .prompt{color:var(--accent)}
+.terminal-body .cmd{color:var(--text)}
+.terminal-body .out{color:var(--text-muted)}
+.terminal-body .comment{color:#555}
+
+/* ========== Shortcuts Table ========== */
+.shortcuts{
+  border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;
+}
+.shortcuts table{width:100%;border-collapse:collapse;font-size:14px}
+.shortcuts th{
+  text-align:left;padding:14px 20px;background:var(--surface);
+  font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--text-secondary);border-bottom:1px solid var(--border);
+}
+.shortcuts td{padding:14px 20px;border-bottom:1px solid var(--border);color:var(--text-secondary)}
+.shortcuts td:first-child{font-family:'SF Mono',Menlo,monospace;color:var(--accent);font-weight:500}
+.shortcuts tr:last-child td{border-bottom:none}
+.shortcuts tr:hover td{background:rgba(255,255,255,.02)}
+
+/* ========== CTA Section ========== */
+.cta-section{text-align:center;padding:120px 0}
+.cta-section h2{font-size:clamp(28px,4vw,40px);font-weight:700;margin-bottom:16px;letter-spacing:-.02em}
+.cta-section p{font-size:17px;color:var(--text-secondary);margin-bottom:40px}
+
+/* ========== Footer ========== */
+footer{border-top:1px solid var(--border);padding:48px 0}
+footer .container{display:flex;flex-direction:column;align-items:center;gap:24px}
+footer .links{display:flex;gap:32px;flex-wrap:wrap;justify-content:center}
+footer .links a{font-size:14px;color:var(--text-secondary);transition:color .2s}
+footer .links a:hover{color:var(--accent)}
+footer .copy{font-size:13px;color:var(--text-muted)}
+
+/* ========== Animations ========== */
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+.reveal{opacity:0;transform:translateY(24px);transition:opacity .6s ease-out,transform .6s ease-out}
+.reveal.visible{opacity:1;transform:translateY(0)}
+
+/* ========== Flash animation for note mockup ========== */
+@keyframes flashPulse{0%{border-color:var(--border);background:var(--surface2)}30%{border-color:var(--accent);background:var(--accent-dim)}100%{border-color:var(--border);background:var(--surface2)}}
+
+/* ========== Responsive quick-start grid ========== */
+@media(max-width:768px){.quick-start-grid{grid-template-columns:1fr!important}}
+
+</style>
+</head>
+<body>
+
+<!-- ========== Nav ========== -->
+<nav>
+  <div class="container">
+    <a href="#" class="nav-brand">
+      <img src="copynote-icon.png" alt="CopyNote">
+      <span>CopyNote</span>
+    </a>
+    <div class="nav-links">
+      <a href="#features">功能</a>
+      <a href="#minibar">迷你条</a>
+      <a href="#start">快速开始</a>
+      <a href="#shortcuts">快捷键</a>
+    </div>
+    <a href="https://github.com/demario1201-creator/CopyNote/releases" class="nav-cta">下载</a>
+  </div>
+</nav>
+
+<!-- ========== Hero ========== -->
+<section class="hero">
+  <div class="container">
+    <img src="copynote-icon.png" alt="CopyNote" class="hero-icon">
+    <h1>把「复制」压缩成<br><span class="gradient">一次点击</span></h1>
+    <p class="hero-sub">原生 SwiftUI 打造的 macOS 菜单栏便签。轻若鸿毛，即取即用，数据只在本机。</p>
+    <div class="hero-badges">
+      <span class="badge">macOS 14+</span>
+      <span class="badge">Swift 5.9+</span>
+      <span class="badge">SwiftUI + AppKit</span>
+      <span class="badge">MIT License</span>
+      <span class="badge">零依赖</span>
+    </div>
+    <div class="hero-cta">
+      <a href="https://github.com/demario1201-creator/CopyNote/releases" class="btn btn-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        下载 Release
+      </a>
+      <a href="https://github.com/demario1201-creator/CopyNote" class="btn btn-secondary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.61-5.475 5.91.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        查看源码
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ========== Quote / Value Prop ========== -->
+<section class="section" style="padding-top:40px">
+  <div class="container">
+    <div class="quote-block reveal">
+      <p>别的便签要「打开 App → 翻找 → 选中 → 复制」。<br>CopyNote 把这一切压缩成 <strong style="color:var(--accent)">一次点击</strong>。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ========== Features Grid ========== -->
+<section class="section" id="features" style="padding-top:40px">
+  <div class="container">
+    <div class="sec-header reveal">
+      <h2>快，是它的<span class="accent">本能</span></h2>
+      <p>从菜单栏到剪贴板，全程不打开窗口</p>
+    </div>
+    <div class="feature-grid">
+      <div class="feature-card reveal">
+        <span class="feature-icon">🖱️</span>
+        <h3>单击即复制</h3>
+        <p>点击任意便签或色卡圆点，内容直入剪贴板，绿色闪光反馈。无需选中、无需 Ctrl+C。</p>
+      </div>
+      <div class="feature-card reveal">
+        <span class="feature-icon">🫧</span>
+        <h3>迷你悬浮条</h3>
+        <p>窗口收成屏幕边缘一条彩标。悬停预览、滚动翻页、点击即取，全程不展开窗口。</p>
+      </div>
+      <div class="feature-card reveal">
+        <span class="feature-icon">🎨</span>
+        <h3>色卡直达</h3>
+        <p>圆点即「最近颜色」，点击复制最近内容；右键菜单，同色便签任你挑。同色合并不重复。</p>
+      </div>
+      <div class="feature-card reveal">
+        <span class="feature-icon">⌨️</span>
+        <h3>全局热键</h3>
+        <p>⌥ ⌘ N 任意应用唤出 / 收起，7 个动作全部可自定义、冲突自动提示。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== Feature Strips (alternating) ========== -->
+<section class="section" id="minibar" style="padding-top:80px">
+  <div class="container">
+
+    <!-- Strip 1: Mini Bar -->
+    <div class="strip-item reveal" style="margin-bottom:80px">
+      <div class="strip-text">
+        <h3>悬停即看，点击即取</h3>
+        <p>把窗口收成屏幕边缘一条彩标。需要时悬停展开，不需要时悄然退回。</p>
+        <ul>
+          <li>rest 状态仅 56px，一条色标</li>
+          <li>悬停 morph 为 peek 面板，可滚动浏览</li>
+          <li>色点点击复制，右键同色菜单</li>
+          <li>置顶便签优先显示</li>
+        </ul>
+      </div>
+      <div class="strip-visual">
+        <div class="mini-bar-mock">
+          <div style="width:24px;height:4px;border-radius:2px;background:rgba(255,255,255,.15)"></div>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent)"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+          <div class="dot c1"></div>
+          <div class="dot c2"></div>
+          <div class="dot c3"></div>
+          <div class="dot c4"></div>
+          <div class="count">12</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Strip 2: Click to Copy -->
+    <div class="strip-item reveal" style="margin-bottom:80px">
+      <div class="strip-text">
+        <h3>复制，从来不该是三步</h3>
+        <p>选中 → Ctrl+C → 粘贴。这个流程在 CopyNote 里不存在。点一下，结束。</p>
+        <ul>
+          <li>主列表点击便签行 = 复制</li>
+          <li>迷你条色点点击 = 复制</li>
+          <li>绿色闪光 + scale 反馈</li>
+          <li>复制历史最近 10 条自动留档</li>
+        </ul>
+      </div>
+      <div class="strip-visual">
+        <div class="note-mock">
+          <div class="note-item" id="note1">
+            <div class="nc-dot" style="background:#fbbf24"></div>
+            <span class="nc-title">API 密钥</span>
+            <span class="nc-meta">⌘ ↵</span>
+          </div>
+          <div class="note-item flash" id="note2">
+            <div class="nc-dot" style="background:#34d399"></div>
+            <span class="nc-title">服务器地址</span>
+            <span class="nc-meta" style="color:var(--accent)">✓ 已复制</span>
+          </div>
+          <div class="note-item" id="note3">
+            <div class="nc-dot" style="background:#60a5fa"></div>
+            <span class="nc-title">SSH 端口</span>
+            <span class="nc-meta">⌘ ↵</span>
+          </div>
+          <div class="note-item" id="note4">
+            <div class="nc-dot" style="background:#f472b6"></div>
+            <span class="nc-title">数据库连接串</span>
+            <span class="nc-meta">⌘ ↵</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Strip 3: Privacy -->
+    <div class="strip-item reveal">
+      <div class="strip-text">
+        <h3>数据只在本机</h3>
+        <p>零上传、零账号、零追踪。SwiftUI + AppKit 本尊，没有 Electron，没有第三方运行时。</p>
+        <ul>
+          <li>纯本地 JSON 持久化</li>
+          <li>每日自动备份，7 天快照轮换</li>
+          <li>手动备份 / 一键恢复</li>
+          <li>简体中文 / English 双语切换</li>
+        </ul>
+      </div>
+      <div class="strip-visual">
+        <div style="text-align:center;padding:20px">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--accent);margin-bottom:16px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+          <p style="font-size:14px;color:var(--text-secondary);line-height:1.6">
+            数据从未离开你的 Mac<br>
+            <span style="color:var(--text-muted);font-size:12px">Local JSON · No Cloud · No Telemetry</span>
+          </p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ========== More Features ========== -->
+<section class="section" style="padding-top:40px">
+  <div class="container">
+    <div class="sec-header reveal">
+      <h2>越用越<span class="accent">顺手</span></h2>
+      <p>不止快，还好用</p>
+    </div>
+    <div class="feature-grid">
+      <div class="feature-card reveal">
+        <span class="feature-icon">📝</span>
+        <h3>Markdown 渲染</h3>
+        <p>标题 / 粗体 / 链接 / 行内代码开箱即用，编辑实时预览。</p>
+      </div>
+      <div class="feature-card reveal">
+        <span class="feature-icon">🏷️</span>
+        <h3>多标签 + 分组</h3>
+        <p>无限标签、按使用频率排序、一键分组视图。</p>
+      </div>
+      <div class="feature-card reveal">
+        <span class="feature-icon">🔍</span>
+        <h3>智能搜索</h3>
+        <p>多关键词空格分隔（AND 逻辑），跨标题 / 内容 / 标签秒级命中。</p>
+      </div>
+      <div class="feature-card reveal">
+        <span class="feature-icon">⭐</span>
+        <h3>收藏 & 锁定</h3>
+        <p>星标便签永远置顶；锁定便签删除前二次确认，防误删。</p>
+      </div>
+      <div class="feature-card reveal">
+        <span class="feature-icon">📋</span>
+        <h3>复制历史</h3>
+        <p>最近 10 条自动留档，⌘ ⇧ V 随手回捞。</p>
+      </div>
+      <div class="feature-card reveal">
+        <span class="feature-icon">🎬</span>
+        <h3>赏心悦目</h3>
+        <p>窗口置顶 · 边缘吸附 · 主窗口↔悬浮条丝滑 morph · 卡片 hover · 复制闪光。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== Quick Start ========== -->
+<section class="section" id="start" style="padding-top:40px">
+  <div class="container">
+    <div class="sec-header reveal">
+      <h2><span class="accent">快速</span>开始</h2>
+      <p>两种方式，任选其一</p>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px" class="reveal quick-start-grid">
+      <!-- Download -->
+      <div>
+        <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px">
+          <span style="color:var(--accent)">①</span> 下载 Release（推荐）
+        </h3>
+        <div class="terminal">
+          <div class="terminal-bar">
+            <div class="dots"><span></span><span></span><span></span></div>
+            <span class="label">下载后解压拖入「应用程序」</span>
+          </div>
+          <div class="terminal-body">
+            <div><span class="comment"># 首次打开被拦截？右键 → 打开 即可</span></div>
+            <div><span class="comment"># 或命令行去除隔离标记</span></div>
+            <div><span class="prompt">$ </span><span class="cmd">xattr -dr com.apple.quarantine /Applications/CopyNote.app</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Source -->
+      <div>
+        <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px">
+          <span style="color:var(--accent)">②</span> 源码编译
+        </h3>
+        <div class="terminal">
+          <div class="terminal-bar">
+            <div class="dots"><span></span><span></span><span></span></div>
+            <span class="label">Terminal</span>
+          </div>
+          <div class="terminal-body">
+            <div><span class="prompt">$ </span><span class="cmd">git clone https://github.com/demario1201-creator/CopyNote.git</span></div>
+            <div><span class="prompt">$ </span><span class="cmd">cd CopyNote</span></div>
+            <div><span class="prompt">$ </span><span class="cmd">swift build --disable-sandbox</span></div>
+            <div><span class="prompt">$ </span><span class="cmd">bash script/build_and_run.sh run</span></div>
+            <div class="out">Build complete! ✓</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p style="text-align:center;font-size:13px;color:var(--text-muted)" class="reveal">
+      系统要求：macOS 14.0+ (Sonoma) · Apple Silicon
+    </p>
+  </div>
+</section>
+<!-- ========== Shortcuts ========== -->
+<section class="section" id="shortcuts" style="padding-top:40px">
+  <div class="container">
+    <div class="sec-header reveal">
+      <h2><span class="accent">快捷键</span></h2>
+      <p>全部可在设置中自定义，冲突自动提示</p>
+    </div>
+    <div class="shortcuts reveal">
+      <table>
+        <thead>
+          <tr><th>快捷键</th><th>功能</th><th>作用域</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>⌥ ⌘ N</td><td>切换主窗口 / 悬浮条</td><td>全局</td></tr>
+          <tr><td>⌘ N</td><td>新建便签</td><td>应用内</td></tr>
+          <tr><td>⌘ E</td><td>编辑选中便签</td><td>应用内</td></tr>
+          <tr><td>⌘ D</td><td>复制一份副本</td><td>应用内</td></tr>
+          <tr><td>⌘ ↵</td><td>复制选中便签内容</td><td>应用内</td></tr>
+          <tr><td>⌘ ⇧ V</td><td>打开复制历史</td><td>应用内</td></tr>
+          <tr><td>⌫</td><td>删除选中便签</td><td>应用内</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ========== CTA ========== -->
+<section class="cta-section">
+  <div class="container reveal">
+    <h2>把翻找复制的时间省回来</h2>
+    <p>下载 CopyNote，让每次复制变成一次点击。</p>
+    <div class="hero-cta">
+      <a href="https://github.com/demario1201-creator/CopyNote/releases" class="btn btn-primary">下载最新版</a>
+      <a href="https://github.com/demario1201-creator/CopyNote" class="btn btn-secondary">GitHub</a>
+    </div>
+  </div>
+</section>
+
+<!-- ========== Footer ========== -->
+<footer>
+  <div class="container">
+    <img src="copynote-icon.png" alt="CopyNote" style="width:48px;height:48px;border-radius:12px;margin-bottom:8px">
+    <div class="links">
+      <a href="https://github.com/demario1201-creator/CopyNote">GitHub</a>
+      <a href="https://github.com/demario1201-creator/CopyNote/releases">Releases</a>
+      <a href="https://github.com/demario1201-creator/CopyNote/issues">报告问题</a>
+      <a href="https://github.com/demario1201-creator/CopyNote/discussions">功能建议</a>
+    </div>
+    <p class="copy">MIT License © 2026 CopyNote · 原生 SwiftUI + AppKit · 零依赖</p>
+  </div>
+</footer>
+
+<script>
+// Scroll reveal
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+      observer.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+// Note mockup click-to-copy animation
+document.querySelectorAll('.note-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.note-item').forEach(n => {
+      n.classList.remove('flash');
+      n.querySelector('.nc-meta').innerHTML = '⌘ ↵';
+      n.querySelector('.nc-meta').style.color = '';
+    });
+    item.classList.add('flash');
+    item.querySelector('.nc-meta').textContent = '✓ 已复制';
+    item.querySelector('.nc-meta').style.color = 'var(--accent)';
+  });
+});
+
+// Smooth nav border on scroll
+const nav = document.querySelector('nav');
+window.addEventListener('scroll', () => {
+  nav.style.borderColor = window.scrollY > 20 ? 'rgba(255,255,255,.12)' : 'rgba(255,255,255,.08)';
+});
+</script>
+
+</body>
+</html>
