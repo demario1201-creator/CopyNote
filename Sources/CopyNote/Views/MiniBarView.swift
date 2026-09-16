@@ -9,6 +9,41 @@ struct MiniBarView: View {
     @Environment(NoteStore.self) private var store
     private let restBreakpoint: CGFloat = 100
 
+    /// 「最近便签」= 按 updatedAt 降序（最新在前），与 store 的置顶优先排序解耦，
+    /// 否则置顶便签会永远占据 mini 窗口，新增便签永远不出现。
+    private var recentNotes: [Note] {
+        store.notes.sorted { $0.updatedAt > $1.updatedAt }
+    }
+
+    /// peek 栏列表顺序：置顶便签优先，组内按 updatedAt 降序；
+    /// 列表可滚动，置顶之外的其余便签（含新增）通过下滑查看。
+    private var peekNotes: [Note] {
+        store.notes.sorted { a, b in
+            if a.isPinned != b.isPinned { return a.isPinned && !b.isPinned }
+            return a.updatedAt > b.updatedAt
+        }
+    }
+
+    /// 色卡去重源：按颜色去重后的最近便签（一条 = 一个唯一颜色，取该颜色最近更新的便签）。
+    /// 同色多条只显示一个点，避免色点重复、点击无法区分。
+    private var swatchNotes: [Note] {
+        var seen = Set<String>()
+        var result: [Note] = []
+        for note in recentNotes {
+            if seen.insert(note.colorHex).inserted {
+                result.append(note)
+            }
+        }
+        return result
+    }
+
+    /// 某颜色下的全部便签（updatedAt 降序），供色点右键菜单选择复制
+    private func notesWithColor(_ hex: String) -> [Note] {
+        store.notes
+            .filter { $0.colorHex == hex }
+            .sorted { $0.updatedAt > $1.updatedAt }
+    }
+
     /// F5+UI：已复制成功 flash 的便签 ID（nil 表示没有正在 flash）
     @State private var flashedNoteID: UUID? = nil
 
@@ -80,7 +115,7 @@ struct MiniBarView: View {
                 .padding(.vertical, 10)
                 .allowsHitTesting(false)
 
-            // 右栏：多条最近便签（最多 5 条）
+            // 右栏：便签列表（置顶优先 + 最近更新；可滚动查看全部）
             //   每条：色点 + 标题（1 行） + 标签/内容预览单行 + pin/lock/time
             //   分隔：0.5 细分割线
             VStack(alignment: .leading, spacing: 0) {
@@ -98,20 +133,22 @@ struct MiniBarView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 } else {
-                    let previewNotes = Array(store.notes.prefix(5))
-                    ForEach(previewNotes.indices, id: \.self) { idx in
-                        let note = previewNotes[idx]
-                        let isFlashing = flashedID.wrappedValue == note.id
-                        MiniPeekNoteRow(note: note, isFlashing: isFlashing)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                quickCopy(note, flashedID: flashedID)
+                    ScrollView(showsIndicators: false) {
+                        LazyVStack(alignment: .leading, spacing: 0) {
+                            ForEach(peekNotes.indices, id: \.self) { idx in
+                                let note = peekNotes[idx]
+                                let isFlashing = flashedID.wrappedValue == note.id
+                                MiniPeekNoteRow(note: note, isFlashing: isFlashing)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        quickCopy(note, flashedID: flashedID)
+                                    }
+                                if idx < peekNotes.count - 1 {
+                                    Divider().opacity(0.35).padding(.leading, 20)
+                                }
                             }
-                        if idx < previewNotes.count - 1 {
-                            Divider().opacity(0.35).padding(.leading, 20)
                         }
                     }
-                    Spacer(minLength: 0)
                 }
             }
             .padding(.horizontal, 10)
@@ -145,11 +182,13 @@ struct MiniBarView: View {
             )
     }
 
-    /// 最近便签色卡（2 列、每列垂直堆叠）。空态显示占位。
+    /// 最近便签色卡（单列垂直堆叠）。空态显示占位。
+    /// 色点按「颜色」去重：一个颜色一个点（取该颜色最近更新的便签）；
+    /// 点击 → 快速复制该色最近一条；右键 → 该颜色全部便签菜单。
     @ViewBuilder
     private func recentSwatches(maxCount: Int) -> some View {
-        let recent = Array(store.notes.prefix(maxCount))
-        if recent.isEmpty {
+        let swatches = Array(swatchNotes.prefix(maxCount))
+        if swatches.isEmpty {
             // 空态占位小点
             HStack(spacing: 4) {
                 Circle().fill(Color.primary.opacity(0.10)).frame(width: 10, height: 10)
@@ -157,26 +196,16 @@ struct MiniBarView: View {
             }
         } else {
             VStack(spacing: 5) {
-                ForEach(recent, id: \.id) { note in
-                    let theme = NoteColorTheme(fromHex: note.colorHex)
-                    Circle()
-                        .fill(theme.swatch)
-                        .overlay(
-                            Circle().stroke(theme.swatchStroke, lineWidth: 0.5)
-                        )
-                        .frame(width: 14, height: 14)
-                        .overlay(alignment: .topTrailing) {
-                            if note.isPinned {
-                                Circle()
-                                    .fill(Color.orange)
-                                    .frame(width: 5, height: 5)
-                                    .padding(.top, -1)
-                                    .padding(.trailing, -1)
-                            }
-                        }
+                ForEach(swatches, id: \.id) { note in
+                    MiniSwatchDot(
+                        note: note,
+                        allNotes: notesWithColor(note.colorHex),
+                        flashedNoteID: $flashedNoteID,
+                        onQuickCopy: { quickCopy($0, flashedID: $flashedNoteID) }
+                    )
                 }
                 // 占位使 rest 态有 4 点均匀感
-                ForEach(0..<max(0, maxCount - recent.count), id: \.self) { _ in
+                ForEach(0..<max(0, maxCount - swatches.count), id: \.self) { _ in
                     Circle()
                         .fill(Color.primary.opacity(0.06))
                         .frame(width: 14, height: 14)
@@ -209,6 +238,58 @@ struct MiniBarView: View {
     /// 用 NotificationCenter 跨 AppKit/SwiftUI 边界传信，避免闭包穿透多层
     private func postSidebarTap() {
         NotificationCenter.default.post(name: .miniBarSidebarTapped, object: nil)
+    }
+}
+
+/// 迷你条色卡圆点：一个颜色一个点。
+/// 点击 → 快速复制该颜色最近一条便签；右键 → 该颜色全部便签菜单选择复制。
+/// flash 时外圈绿色高亮 + 轻微放大；hover 显示细描边提示可点击。
+private struct MiniSwatchDot: View {
+    let note: Note                    // 该颜色最近更新的便签（点击复制目标）
+    let allNotes: [Note]              // 该颜色全部便签（右键菜单）
+    @Binding var flashedNoteID: UUID?
+    var onQuickCopy: (Note) -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        let theme = NoteColorTheme(fromHex: note.colorHex)
+        let isFlashing = flashedNoteID == note.id
+        Circle()
+            .fill(theme.swatch)
+            .overlay(Circle().stroke(theme.swatchStroke, lineWidth: 0.5))
+            .overlay(
+                Circle().stroke(
+                    isFlashing ? Color.green : (isHovered ? Color.primary.opacity(0.3) : .clear),
+                    lineWidth: isFlashing ? 1.8 : (isHovered ? 1.2 : 0)
+                )
+            )
+            .frame(width: 14, height: 14)
+            .overlay(alignment: .topTrailing) {
+                if note.isPinned {
+                    Circle()
+                        .fill(Color.orange)
+                        .frame(width: 5, height: 5)
+                        .padding(.top, -1)
+                        .padding(.trailing, -1)
+                }
+            }
+            .scaleEffect(isFlashing ? 1.18 : 1.0)
+            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: isFlashing)
+            .contentShape(Circle())
+            .onHover { isHovered = $0 }
+            .onTapGesture { onQuickCopy(note) }
+            .contextMenu {
+                // 该颜色全部便签（updatedAt 降序，第一条即最近），点选复制对应内容
+                ForEach(allNotes, id: \.id) { n in
+                    Button {
+                        onQuickCopy(n)
+                    } label: {
+                        Label(n.title.isEmpty ? "无标题" : n.title,
+                              systemImage: "doc.on.clipboard")
+                    }
+                }
+            }
     }
 }
 

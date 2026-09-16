@@ -21,6 +21,9 @@ struct MainNoteListView: View {
     // F5：选中的便签 ID（支持键盘操作）
     @State private var selection: Note.ID?
 
+    // 新增/编辑保存后，滚动定位到该便签（「最早更新」升序下新便签沉底，需自动滚到可见）
+    @State private var pendingScrollID: Note.ID?
+
     // F4：复制历史 Popover 开关 + 本地 mirror 跟随 ClipboardHistoryStore.shared.items
     @State private var showHistory = false
     @State private var historyItems: [ClipboardHistoryItem] = []
@@ -95,7 +98,10 @@ struct MainNoteListView: View {
         .frame(minWidth: 320, minHeight: 400)
         .background(.ultraThinMaterial)
         .sheet(isPresented: $isEditing) {
-            NoteEditorView(note: $editingNote, isNewNote: isNewNote)
+            NoteEditorView(note: $editingNote, isNewNote: isNewNote) { saved in
+                selection = saved.id
+                pendingScrollID = saved.id
+            }
         }
         .onAppear {
             isCompact = isCompactPersisted
@@ -160,68 +166,113 @@ struct MainNoteListView: View {
 
     @ViewBuilder
     private var listContentView: some View {
-        List(selection: $selection) {
-            Section {
-                ForEach(displayed, id: \.id, content: rowContent)
+        ScrollViewReader { proxy in
+            List(selection: $selection) {
+                Section {
+                    ForEach(displayed, id: \.id, content: rowContent)
+                }
+            }
+            .listStyle(.inset)
+            .scrollContentBackground(.hidden)
+            .focusable()
+            .onChange(of: pendingScrollID) { _, newID in
+                guard let newID else { return }
+                // 延后到下一运行循环：确保 List 已渲染新行（新建便签在升序下位于列表底部）
+                DispatchQueue.main.async {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        proxy.scrollTo(newID, anchor: .center)
+                    }
+                }
+                pendingScrollID = nil
+            }
+            // 兜底：若 primary onChange 未消费（如首次新建时视图刚插入、onChange 以新值初始化而漏触发），
+            // 待 sheet 关闭后再滚动到新保存的便签
+            .onChange(of: isEditing) { _, editing in
+                guard !editing, let id = pendingScrollID else { return }
+                DispatchQueue.main.async {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        proxy.scrollTo(id, anchor: .center)
+                    }
+                }
+                pendingScrollID = nil
             }
         }
-        .listStyle(.inset)
-        .scrollContentBackground(.hidden)
-        .focusable()
     }
 
     /// F6：分组视图 — 按「首个标签」DisclosureGroup；最后一组是未分类
     @ViewBuilder
     private var groupedContentView: some View {
-        List(selection: $selection) {
-            Section {
-                ForEach(groups) { g in
-                    DisclosureGroup {
-                        ForEach(g.notes, id: \.id, content: rowContent)
-                    } label: {
-                        HStack(spacing: 6) {
-                            if g.key.isEmpty {
-                                Label(AppStrings.Group.uncategorized, systemImage: "tray")
-                                    .font(.system(size: 12, weight: .semibold))
-                            } else {
-                                Label {
-                                    Text(g.title)
+        ScrollViewReader { proxy in
+            List(selection: $selection) {
+                Section {
+                    ForEach(groups) { g in
+                        DisclosureGroup {
+                            ForEach(g.notes, id: \.id, content: rowContent)
+                        } label: {
+                            HStack(spacing: 6) {
+                                if g.key.isEmpty {
+                                    Label(AppStrings.Group.uncategorized, systemImage: "tray")
                                         .font(.system(size: 12, weight: .semibold))
-                                } icon: {
-                                    Image(systemName: "number")
-                                        .foregroundStyle(Color(nsColor: NSColor.controlAccentColor))
+                                } else {
+                                    Label {
+                                        Text(g.title)
+                                            .font(.system(size: 12, weight: .semibold))
+                                    } icon: {
+                                        Image(systemName: "number")
+                                            .foregroundStyle(Color(nsColor: NSColor.controlAccentColor))
+                                    }
+                                }
+                                Text("\(g.notes.count)")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 1)
+                                    .background(
+                                        Capsule().fill(Color.primary.opacity(0.06))
+                                    )
+                                Spacer()
+                                // 本组星标数提示（可选）
+                                let pinCount = g.notes.filter(\.isPinned).count
+                                if pinCount > 0 {
+                                    HStack(spacing: 2) {
+                                        Image(systemName: "star.fill")
+                                            .font(.system(size: 8, weight: .semibold))
+                                            .foregroundStyle(.orange)
+                                        Text("\(pinCount)")
+                                            .font(.system(size: 10))
+                                            .foregroundStyle(.tertiary)
+                                    }
                                 }
                             }
-                            Text("\(g.notes.count)")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 1)
-                                .background(
-                                    Capsule().fill(Color.primary.opacity(0.06))
-                                )
-                            Spacer()
-                            // 本组星标数提示（可选）
-                            let pinCount = g.notes.filter(\.isPinned).count
-                            if pinCount > 0 {
-                                HStack(spacing: 2) {
-                                    Image(systemName: "star.fill")
-                                        .font(.system(size: 8, weight: .semibold))
-                                        .foregroundStyle(.orange)
-                                    Text("\(pinCount)")
-                                        .font(.system(size: 10))
-                                        .foregroundStyle(.tertiary)
-                                }
-                            }
+                            .padding(.vertical, 2)
                         }
-                        .padding(.vertical, 2)
                     }
                 }
             }
+            .listStyle(.inset)
+            .scrollContentBackground(.hidden)
+            .focusable()
+            .onChange(of: pendingScrollID) { _, newID in
+                guard let newID else { return }
+                // 延后到下一运行循环：确保 List 已渲染新行（新建便签在升序下位于列表底部）
+                DispatchQueue.main.async {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        proxy.scrollTo(newID, anchor: .center)
+                    }
+                }
+                pendingScrollID = nil
+            }
+            // 兜底：同 listContentView
+            .onChange(of: isEditing) { _, editing in
+                guard !editing, let id = pendingScrollID else { return }
+                DispatchQueue.main.async {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        proxy.scrollTo(id, anchor: .center)
+                    }
+                }
+                pendingScrollID = nil
+            }
         }
-        .listStyle(.inset)
-        .scrollContentBackground(.hidden)
-        .focusable()
     }
 
     @ViewBuilder
@@ -233,6 +284,7 @@ struct MainNoteListView: View {
                     onTogglePinned: { store.togglePinned(note) },
                     onToggleLocked: { store.toggleLocked(note) })
             .contextMenu { rowContextMenu(note) }
+            .id(note.id)
             .tag(note.id)
             .transition(rowTransition)
     }

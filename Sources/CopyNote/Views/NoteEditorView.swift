@@ -11,6 +11,8 @@ struct NoteEditorView: View {
     @State private var showPreview = false  // F1：编辑 vs 预览
     /// 是否为新建便签（取消时如果为空则删除）
     var isNewNote: Bool = false
+    /// 保存成功后回调（携带最终便签），供主列表选中并滚动到该便签
+    var onSaved: ((Note) -> Void)? = nil
 
     private var theme: NoteColorTheme { NoteColorTheme(fromHex: note.colorHex) }
     private var wordCount: Int { note.content.isEmpty ? 0 : note.content.split(whereSeparator: \.isWhitespace).count }
@@ -319,15 +321,23 @@ struct NoteEditorView: View {
     private func saveAndDismiss() {
         let trimmedTitle = note.title.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedContent = note.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        let savedNote: Note?
         if trimmedTitle.isEmpty && trimmedContent.isEmpty {
             // 空便签：新建直接丢弃；编辑则删除原有（避免空白条目）
             if !isNewNote { store.delete(note) }
+            savedNote = nil
         } else if isNewNote {
-            store.add(note)
+            savedNote = store.add(note)
         } else {
             store.update(note)
+            savedNote = note
         }
+        // 先 dismiss，再延后触发 onSaved：避免在 sheet 关闭事务中同步修改
+        // 父视图 @State（selection/pendingScrollID），导致首次保存时滚动被吞掉
         dismiss()
+        if let savedNote {
+            DispatchQueue.main.async { onSaved?(savedNote) }
+        }
     }
 }
 

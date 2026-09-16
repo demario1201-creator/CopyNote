@@ -91,10 +91,38 @@ enum AppIconFactory {
 
     // MARK: - MenuBar Status Icon (模板图)
 
-    /// 状态栏图标：使用代码绘制的单色轮廓符号（模板图），跟随系统菜单色。
-    /// 不使用彩色 statusbar PNG —— 彩色图被 isTemplate 模板化后 alpha 填满会显示成实心方块。
+    /// 状态栏图标：优先加载 Resources 中与 AppIcon 同款的新版单色模板 PNG；
+    /// 失败则使用代码绘制的单色轮廓符号兜底。均为模板图，跟随系统菜单色。
+    /// （模板化只认 alpha 通道：新版 PNG 为「黑色实心 + 透明挖洞」，不会变实心方块）
     static func makeStatusBarImage(length: CGFloat = 18) -> NSImage {
+        let base = length <= 16 ? "statusbar-16" : "statusbar-18"
+        // 优先 @2x（retina 下更清晰），其次 1x
+        if let img = loadStatusBarPNG("\(base)@2x") ?? loadStatusBarPNG(base) {
+            img.isTemplate = true
+            guard abs(img.size.width - length) > 0.5 else { return img }
+            let resized = NSImage(size: NSSize(width: length, height: length))
+            resized.lockFocus()
+            img.draw(in: NSRect(x: 0, y: 0, width: length, height: length))
+            resized.unlockFocus()
+            resized.isTemplate = true
+            return resized
+        }
         return drawStatusBarFallback(length: length)
+    }
+
+    /// 加载 statusbar PNG 并正确处理 @2x 缩放（像素 2x → point 尺寸减半）
+    private static func loadStatusBarPNG(_ name: String) -> NSImage? {
+        guard let base = resourcesURL else { return nil }
+        let url = base.appendingPathComponent("\(name).png")
+        guard let data = try? Data(contentsOf: url),
+              let rep = NSBitmapImageRep(data: data) else { return nil }
+        if name.hasSuffix("@2x") {
+            // 2x 文件：像素宽度是 point 尺寸的 2 倍，设置 rep.size 使 NSImage 按 point 渲染
+            rep.size = NSSize(width: rep.pixelsWide / 2, height: rep.pixelsHigh / 2)
+        }
+        let img = NSImage(size: rep.size)
+        img.addRepresentation(rep)
+        return img
     }
 
     // MARK: - Fallback (legacy code-drawing)

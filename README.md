@@ -1,6 +1,15 @@
+<p align="center">
+  <a href="#-为什么是-copynote">亮点</a> ·
+  <a href="#-快速开始">安装</a> ·
+  <a href="#-快捷键">快捷键</a> ·
+  <a href="#-使用指南">指南</a> ·
+  <a href="#-技术选型">技术</a> ·
+  <a href="#-license">License</a>
+</p>
+
 <div align="center">
 
-<img src="docs/copynote-icon.png" width="140" height="140" alt="CopyNote logo" />
+<img src="docs/copynote-icon.png" width="120" height="120" alt="CopyNote" />
 
 # CopyNote
 
@@ -12,90 +21,70 @@
 [![Swift](https://img.shields.io/badge/Swift-5.9%2B-orange?logo=swift&logoColor=white)](https://swift.org)
 [![SwiftUI](https://img.shields.io/badge/SwiftUI-native-blue)](https://developer.apple.com/xcode/swiftui/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/demario1201-creator/CopyNote?color=red)](https://github.com/demario1201-creator/CopyNote/releases)
 [![零依赖](https://img.shields.io/badge/dependencies-none-brightgreen)]()
 
-**快速复制** · **迷你悬浮条** · **本地隐私** · **无云依赖**
-
-[功能亮点](#-为什么选择-copynote) · [安装](#-安装) · [快捷键](#-快捷键) · [使用指南](#-使用指南) · [技术栈](#-技术栈) · [License](#-license)
+**⚡ 单击即复制** · **🫧 迷你悬浮条** · **🔒 纯本地隐私** · **🪶 原生轻量**
 
 </div>
 
 ---
 
-## ✨ 为什么选择 CopyNote
+## ✨ 为什么是 CopyNote
 
-一张会「主动跑到你面前」的便签 —— 复制内容，从未如此顺手。
+> 别的便签要「打开 App → 翻找 → 选中 → 复制」，CopyNote 把这一切压缩成 **一次点击**。
 
-### ⚡ 极致效率
+### ⚡ 快，是它的本能
 
-| | |
-| --- | --- |
-| 🖱️ **单击即复制** | 点击任意便签，内容立刻进入剪贴板，带绿色 flash 动画反馈 |
-| 🫧 **迷你悬浮条** | 窗口收成屏幕边缘的一条彩色浮标，鼠标滑过即可预览 + 直接点选复制，不展开窗口 |
-| ⌨️ **全局热键** | `⌥ ⌘ N` 任何应用中一键唤出 / 收起，键盘都不用离开 |
-| 🎛️ **快捷键全自定义** | 7 个动作随心改键，自动检测快捷键冲突 |
+- 🖱️ **单击即复制** —— 点任意便签或色卡圆点，内容直入剪贴板，绿色闪光反馈
+- 🫧 **迷你悬浮条** —— 窗口收成屏幕边缘一条彩标：悬停预览、滚动翻页、点击即取，全程不展开窗口
+- 🎨 **色卡直达** —— 圆点即「最近颜色」，点击复制最近内容；右键菜单，同色便签任你挑
+- ⌨️ **全局热键** —— `⌥ ⌘ N` 任意应用唤出 / 收起，7 个动作全部可自定义、冲突自动提示
 
-### 🧠 会思考的便签
+### 🧠 越用越顺手
 
-| | |
-| --- | --- |
-| 📝 **Markdown 渲染** | 标题 / 粗体 / 斜体 / 链接 / 行内代码 开箱即用，编辑器可实时预览 |
-| 🏷️ **多标签 + 分组** | 无限标签、按使用频率排序、一键分组视图、标签胶囊统一视觉 |
-| 🔍 **智能搜索** | 多关键词空格分隔（AND 逻辑），跨标题 / 内容 / 标签秒级命中 |
-| ⭐ **收藏 & 锁定** | 星标便签永远置顶；锁定便签删除前二次确认，防止误删 |
-| 📋 **复制历史** | 自动记录最近 10 条，随手回捞，`⌘ ⇧ V` 一键呼出 |
+- 📝 **Markdown 渲染** —— 标题 / 粗体 / 链接 / 行内代码开箱即用，编辑实时预览
+- 🏷️ **多标签 + 分组** —— 无限标签、按使用频率排序、一键分组视图
+- 🔍 **智能搜索** —— 多关键词空格分隔（AND 逻辑），跨标题 / 内容 / 标签秒级命中
+- ⭐ **收藏 & 锁定** —— 星标便签永远置顶；锁定便签删除前二次确认，防误删
+- 📋 **复制历史** —— 最近 10 条自动留档，`⌘ ⇧ V` 随手回捞
 
-### 🛡️ 隐私与安心
+### 🔒 隐私与轻量
 
-| | |
-| --- | --- |
-| 🔒 **纯本地存储** | 数据只存于本机 JSON，零上传、零账号、零追踪 |
-| 💾 **自动备份** | 每日自动快照 + 7 天保留，随时手动备份 / 一键恢复 |
-| 🚫 **零依赖** | 第三方便签常拖家带口的 Electron，这里只有 SwiftUI + AppKit 本尊 |
-| 🌐 **双语界面** | 简体中文 / English 即时切换 |
+- 🔒 **纯本地存储** —— 数据只在本机，零上传、零账号、零追踪
+- 💾 **每日自动备份** —— 7 天快照轮换，手动备份 / 一键恢复
+- 🪶 **原生零依赖** —— SwiftUI + AppKit 本尊，没有 Electron，没有第三方运行时
+- 🌐 **双语界面** —— 简体中文 / English 即时切换
 
 ### 🎨 赏心悦目
 
-| | |
-| --- | --- |
-| 📌 **窗口置顶** | 一键悬浮于所有窗口之上，参考常驻眼前 |
-| 🧲 **边缘吸附** | 拖到屏幕边缘自动吸附，带弹性回弹动画 |
-| 🃏 **窗口变形过渡** | 主窗口 ↔ 悬浮条丝滑 morph，切换不再生硬 |
-| 🎞️ **细腻动效** | 卡片 hover、折叠过渡、复制闪光，处处顺滑 |
+窗口置顶 📌 · 边缘吸附 🧲 · 主窗口↔悬浮条丝滑 morph 🃏 · 卡片 hover、折叠过渡、复制闪光 🎞️
 
 ---
 
-## 📦 安装
+## 📦 快速开始
 
 ### 方式一：下载 Release（推荐）
 
-1. 前往 [Releases 页面](https://github.com/demario1201-creator/CopyNote/releases) 下载最新 `CopyNote.zip`
-2. 解压后将 `CopyNote.app` 拖入「应用程序」文件夹
-3. ⚠️ **首次打开被 macOS 拦截（「CopyNote.app 已损坏，无法打开 / 移到废纸篓」）怎么办？**
-   这是 macOS Gatekeeper 对**未签名/未公证**第三方应用的正常保护。选择以下任一方式解除（**推荐方式一**，只需一次）：
+下载最新 [Release](https://github.com/demario1201-creator/CopyNote/releases) 的 `CopyNote.zip` → 解压拖入「应用程序」即可。
 
-   **方式 ① · 右键 → 打开（最快）**
-   1. 找到 `CopyNote.app`（通常在「应用程序」或「下载」）
-   2. 按住 **Control 键** → 单击 `CopyNote.app` → **打开**（不要双击）
-   3. 弹出确认对话框 → 再次点 **打开**
-   4. 之后再双击启动不会被拦截
+<details>
+<summary>⚠️ 首次打开被 macOS 拦截怎么办？</summary>
 
-   **方式 ② · 系统设置里放行**
-   1. 先双击尝试打开（看到「已损坏…移到废纸篓」对话框后，不要移到废纸篓，点「取消」）
-   2. 打开「系统设置 → 隐私与安全性」→ 向下滚动
-   3. 会看到提示：「“CopyNote” 已被阻止，因为它来自不被识别的开发者」→ 点 **仍要打开**
-   4. 二次确认对话框 → 点 **打开**
+这是 macOS Gatekeeper 对**未签名 / 未公证**第三方应用的正常保护，任选其一（推荐①，只需一次）：
 
-   **方式 ③ · 命令行去除隔离标记**
-   ```bash
-   # 如果放在「应用程序」：
-   xattr -dr com.apple.quarantine /Applications/CopyNote.app
+**① 右键 → 打开（最快）**
+按住 `Control` 单击 `CopyNote.app` → **打开** → 再次确认 → 之后双击正常启动。
 
-   # 如果放在「下载」：
-   xattr -dr com.apple.quarantine ~/Downloads/CopyNote.app
-   ```
-   执行后再次双击打开即可。
+**② 系统设置放行**
+「系统设置 → 隐私与安全性」→ 找到提示 → **仍要打开** → 二次确认。
+
+**③ 命令行去除隔离标记**
+
+```bash
+xattr -dr com.apple.quarantine /Applications/CopyNote.app
+```
+
+</details>
 
 ### 方式二：源码编译
 
@@ -106,13 +95,13 @@ swift build --disable-sandbox
 bash script/build_and_run.sh run
 ```
 
-> **系统要求**：macOS 14.0+ (Sonoma) · Apple Silicon
+> 系统要求：macOS 14.0+ (Sonoma) · Apple Silicon
 
 ---
 
 ## ⌨️ 快捷键
 
-> 所有快捷键均可在「齿轮设置 → 快捷键」中自定义，冲突自动提示。
+> 全部可在「齿轮设置 → 快捷键」自定义，冲突自动提示。
 
 | 快捷键 | 功能 | 作用域 |
 | --- | --- | --- |
@@ -126,38 +115,25 @@ bash script/build_and_run.sh run
 
 ---
 
-## 📖 使用指南
+## 🧭 使用指南
 
 | 我想… | 怎么做 |
 | --- | --- |
-| **新建便签** | 工具栏 ➕ 或快捷键 `⌘ N` |
-| **复制内容** | 单击便签行（或迷你悬浮条点选），内容即入剪贴板 |
-| **编辑便签** | 悬停便签 → ✏️，或右键「编辑」，或 `⌘ E` |
-| **删除便签** | 悬停便签 → 🗑️，或 `⌫`（锁定便签会二次确认） |
-| **收藏 / 锁定** | 便签上的 ⭐ / 🔒 图标，或右键菜单 |
-| **搜索便签** | 顶部搜索框（空格分隔多关键词） |
-| **标签筛选 / 分组** | 点击搜索栏下方标签胶囊，或工具栏文件夹图标切换分组 |
-| **切换排序** | 工具栏 ↕️ 图标（最近更新 / 标题 A→Z 等 6 种） |
-| **置顶窗口** | 工具栏 📌 图标 |
-| **收起悬浮条** | 工具栏 ◫ 图标，吸附到屏幕边缘 |
-| **导入 / 导出** | 工具栏「导入导出」，JSON 格式，支持单条与批量 |
-| **复制历史** | 工具栏 🕐 图标，或 `⌘ ⇧ V` |
-| **打开设置** | 工具栏 ⚙️ 齿轮（快捷键 / 语言 / 自动备份 / 关于） |
+| 新建便签 | 工具栏 ➕ 或 `⌘ N` |
+| 复制内容 | 单击便签行 / 迷你条色点，即入剪贴板 |
+| 编辑 / 删除 | 悬停 ✏️ / 🗑️，或右键菜单，或 `⌘ E` / `⌫` |
+| 收藏 / 锁定 | 便签 ⭐ / 🔒 图标，或右键菜单 |
+| 搜索 / 筛选 | 顶部搜索框；标签胶囊 / 分组视图 |
+| 切换排序 | 工具栏 ↕️（最近更新 / 标题 A→Z 等 6 种） |
+| 置顶 / 收起 | 工具栏 📌 / ◫，收起后吸附屏幕边缘 |
+| 导入 / 导出 | 工具栏「导入导出」，JSON 格式，支持单条与批量 |
+| 复制历史 | 工具栏 🕐 或 `⌘ ⇧ V` |
 
 ---
 
-## 🛠️ 技术栈
+## 🛠️ 技术选型
 
-| 层面 | 选型 |
-| --- | --- |
-| **UI** | SwiftUI（macOS 14+ 原生组件） |
-| **窗口控制** | AppKit（NSPanel 置顶、层级、动画） |
-| **状态管理** | Swift Observation（`@Observable`） |
-| **持久化** | 本地 JSON 文件 + 每日自动备份 |
-| **全局热键** | Carbon `RegisterEventHotKey` |
-| **构建** | Swift Package Manager（无 Xcode 工程依赖） |
-
-> 更多技术细节与目录结构见项目源码。
+原生 **SwiftUI + AppKit**（NSPanel 窗口 / 层级 / 动画）· **@Observable** 状态管理 · **本地 JSON** 持久化 · **Carbon** 全局热键 —— 一个 SwiftPM 包，无 Xcode 工程依赖。
 
 ---
 
@@ -169,7 +145,7 @@ bash script/build_and_run.sh run
 
 <div align="center">
 
-如果 CopyNote 帮你省下了每一次「翻找 → 复制」的几秒钟，欢迎 ⭐ Star 支持 ⭐
+如果 CopyNote 帮你省下了每次「翻找 → 复制」的几秒钟，欢迎 Star 支持 ⭐
 
 [🐛 报告问题](https://github.com/demario1201-creator/CopyNote/issues) · [💡 功能建议](https://github.com/demario1201-creator/CopyNote/discussions) · [📦 查看 Release](https://github.com/demario1201-creator/CopyNote/releases)
 

@@ -349,21 +349,14 @@ private struct AboutSettingsView: View {
         VStack(spacing: 20) {
             Spacer()
 
-            ZStack {
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.accentColor.opacity(0.8), Color.accentColor.opacity(0.4)],
-                            startPoint: .topLeading, endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 80, height: 80)
-                    .shadow(color: .accentColor.opacity(0.3), radius: 8, y: 4)
-                Image(nsImage: AppIconFactory.makeAppIcon())
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 48, height: 48)
-            }
+            // App 图标：新版图标自带 squircle 底板（PNG 透明背景）。
+            // 放大 + 圆角裁剪，裁掉图标四周的透明留白，避免露出底板色
+            Image(nsImage: AppIconFactory.makeAppIcon())
+                .resizable()
+                .scaledToFill()
+                .frame(width: 88, height: 88)
+                .clipShape(RoundedRectangle(cornerRadius: 20))
+                .shadow(color: .black.opacity(0.15), radius: 6, y: 3)
 
             VStack(spacing: 4) {
                 Text("CopyNote")
@@ -377,7 +370,7 @@ private struct AboutSettingsView: View {
                 Text(AppStrings.Settings.version)
                     .font(.system(size: 11))
                     .foregroundStyle(.tertiary)
-                Text("1.5.0")
+                Text("1.6.0")
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .foregroundStyle(.secondary)
             }
